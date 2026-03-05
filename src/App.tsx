@@ -298,17 +298,61 @@ Generated on: ${new Date().toLocaleString()}
     URL.revokeObjectURL(url);
   };
 
-  const getClassificationColor = (classification: Classification) => {
+  const getClassificationStyles = (classification: Classification) => {
     switch (classification) {
-      case Classification.FUSION_RISK: return 'text-simp-red border-simp-red';
-      case Classification.HABIT_LOOP: return 'text-simp-red border-simp-red opacity-80';
-      case Classification.ANCHOR: return 'text-casual-blue border-casual-blue';
-      case Classification.COMPANION: return 'text-casual-blue border-casual-blue opacity-80';
-      case Classification.ADVISOR: return 'text-tool-green border-tool-green opacity-80';
-      case Classification.INSTRUMENT: return 'text-tool-green border-tool-green';
-      default: return 'text-audit-ink border-audit-ink';
+      case Classification.FUSION_RISK: 
+        return {
+          bg: 'bg-simp-red/5',
+          border: 'border-simp-red',
+          text: 'text-simp-red',
+          shadow: 'shadow-[8px_8px_0px_0px_rgba(255,68,68,0.2)]'
+        };
+      case Classification.HABIT_LOOP: 
+        return {
+          bg: 'bg-simp-red/5',
+          border: 'border-simp-red/60',
+          text: 'text-simp-red/80',
+          shadow: 'shadow-[8px_8px_0px_0px_rgba(255,68,68,0.1)]'
+        };
+      case Classification.ANCHOR: 
+        return {
+          bg: 'bg-casual-blue/5',
+          border: 'border-casual-blue',
+          text: 'text-casual-blue',
+          shadow: 'shadow-[8px_8px_0px_0px_rgba(68,136,255,0.2)]'
+        };
+      case Classification.COMPANION: 
+        return {
+          bg: 'bg-casual-blue/5',
+          border: 'border-casual-blue/60',
+          text: 'text-casual-blue/80',
+          shadow: 'shadow-[8px_8px_0px_0px_rgba(68,136,255,0.1)]'
+        };
+      case Classification.ADVISOR: 
+        return {
+          bg: 'bg-tool-green/5',
+          border: 'border-tool-green/60',
+          text: 'text-tool-green/80',
+          shadow: 'shadow-[8px_8px_0px_0px_rgba(0,204,102,0.1)]'
+        };
+      case Classification.INSTRUMENT: 
+        return {
+          bg: 'bg-tool-green/5',
+          border: 'border-tool-green',
+          text: 'text-tool-green',
+          shadow: 'shadow-[8px_8px_0px_0px_rgba(0,204,102,0.2)]'
+        };
+      default: 
+        return {
+          bg: 'bg-white',
+          border: 'border-audit-line',
+          text: 'text-audit-ink',
+          shadow: 'shadow-[8px_8px_0px_0px_rgba(20,20,20,1)]'
+        };
     }
   };
+
+  const styles = result ? getClassificationStyles(result.classification) : null;
 
   const radarData = result ? [
     { subject: 'Identity', A: result.imagineAnalysis.identity, fullMark: 100 },
@@ -673,42 +717,52 @@ Generated on: ${new Date().toLocaleString()}
               >
                 {/* Classification Header */}
                 <div className={cn(
-                  "bg-white border-2 p-4 md:p-8 shadow-[8px_8px_0px_0px_rgba(20,20,20,1)]",
-                  getClassificationColor(result!.classification)
+                  "border-2 p-4 md:p-6 transition-all duration-500",
+                  styles?.bg,
+                  styles?.border,
+                  styles?.text,
+                  styles?.shadow
                 )}>
                   <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-                    <div>
-                      <p className="text-xs font-mono uppercase opacity-70 mb-1">Relationship Mode</p>
-                      <h2 className="text-2xl md:text-4xl font-bold tracking-tighter uppercase">{result!.classification}</h2>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-mono uppercase opacity-70 tracking-widest">Relationship Mode</p>
+                      <h2 className="text-2xl md:text-3xl font-bold tracking-tighter uppercase leading-none">{result!.classification}</h2>
                     </div>
-                    <div className="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-2">
-                      <div className="text-left md:text-right flex gap-4 md:gap-0 md:flex-col">
-                        <div className="mb-2">
-                          <p className="text-[10px] md:text-xs font-mono uppercase opacity-70 mb-1">Confidence Score</p>
-                          <p className="text-xl md:text-2xl font-bold">{(result!.confidence * 100).toFixed(1)}%</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] md:text-xs font-mono uppercase opacity-70 mb-1">Legacy Attachment</p>
-                          <p className="text-xl md:text-2xl font-bold">{result!.legacyAttachment}%</p>
-                        </div>
+                    
+                    <div className="grid grid-cols-2 md:flex md:flex-row gap-2 w-full md:w-auto">
+                      <div className="bg-white/40 backdrop-blur-sm border border-current/20 p-2 rounded-sm min-w-[80px]">
+                        <p className="text-[8px] font-mono uppercase opacity-70 mb-0.5">Confidence</p>
+                        <p className="text-base font-bold font-mono">{(result!.confidence * 100).toFixed(1)}%</p>
+                      </div>
+                      <div className="bg-white/40 backdrop-blur-sm border border-current/20 p-2 rounded-sm min-w-[80px]">
+                        <p className="text-[8px] font-mono uppercase opacity-70 mb-0.5">Legacy</p>
+                        <p className="text-base font-bold font-mono">{result!.legacyAttachment}%</p>
                       </div>
                       <button 
                         onClick={handleExport}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-audit-ink text-audit-bg text-[10px] md:text-xs font-mono uppercase hover:invert transition-all"
+                        className="col-span-2 md:col-auto flex items-center justify-center gap-1.5 px-3 py-2 bg-audit-ink text-audit-bg text-[10px] font-mono uppercase hover:invert transition-all shadow-[2px_2px_0px_0px_rgba(20,20,20,1)]"
                       >
-                        <FileText className="w-3 h-3" />
+                        <FileText className="w-3.5 h-3.5" />
                         Export
                       </button>
                     </div>
                   </div>
-                  <div className="mt-4 md:mt-6 h-1 w-full bg-audit-ink/10">
+                  
+                  <div className="mt-6 h-1 w-full bg-current/10 rounded-full overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: `${result!.confidence * 100}%` }}
+                      transition={{ duration: 1.5, ease: "easeOut" }}
                       className="h-full bg-current"
                     />
                   </div>
-                  <p className="mt-4 md:mt-6 text-lg md:text-xl font-medium italic font-serif leading-relaxed text-audit-ink/90">"{result!.summary}"</p>
+                  
+                  <div className="mt-6 relative">
+                    <div className="absolute -left-4 top-0 bottom-0 w-0.5 bg-current/20" />
+                    <p className="text-lg md:text-xl font-medium italic font-serif leading-relaxed text-audit-ink/90 pl-4">
+                      "{result!.summary}"
+                    </p>
+                  </div>
                 </div>
 
                 {/* Heatmap & IMAGINE Radar */}
@@ -874,7 +928,7 @@ Generated on: ${new Date().toLocaleString()}
                     <FileText className="w-5 h-5" />
                     <h3 className="text-base md:text-lg font-serif italic font-semibold">Analysis Report</h3>
                   </div>
-                  <div className="analysis-report clinical-report text-sm md:text-lg leading-relaxed text-audit-ink/80">
+                  <div className="analysis-report analytical-report text-sm md:text-lg leading-relaxed text-audit-ink/80">
                     <Markdown>{result!.analysisReport}</Markdown>
                   </div>
                 </section>
