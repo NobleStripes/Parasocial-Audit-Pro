@@ -44,7 +44,8 @@ import { cn } from './lib/utils';
 import { 
   auditBehavioralData, 
   AuditResult, 
-  Classification 
+  Classification,
+  Recommendation
 } from './services/auditService';
 
 export default function App() {
@@ -52,6 +53,8 @@ export default function App() {
   const [images, setImages] = useState<{ data: string, mimeType: string, id: string, preview: string }[]>([]);
   const [isAuditing, setIsAuditing] = useState(false);
   const [result, setResult] = useState<AuditResult | null>(null);
+  const [selectedRecommendations, setSelectedRecommendations] = useState<Recommendation[]>([]);
+  const [isCustomizingPlan, setIsCustomizingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAutoDiagnose, setIsAutoDiagnose] = useState(true);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
@@ -191,6 +194,7 @@ export default function App() {
     try {
       const data = await auditBehavioralData(textToAudit, images.map(img => ({ data: img.data, mimeType: img.mimeType })));
       setResult(data);
+      setSelectedRecommendations(data.interventionPlan.recommendations);
     } catch (err) {
       console.error(err);
       setError('Audit failed. Please ensure the data is valid and try again.');
@@ -243,6 +247,8 @@ export default function App() {
     setTranscript('');
     setImages([]);
     setResult(null);
+    setSelectedRecommendations([]);
+    setIsCustomizingPlan(false);
     setError(null);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
   };
@@ -275,8 +281,8 @@ INTERVENTION PLAN: ${result.interventionPlan.title}
 ----------------------------------------------------------------------
 Rationale: ${result.interventionPlan.rationale}
 
-Recommendations:
-${result.interventionPlan.recommendations.map((r, i) => `${i + 1}. ${r.text}\n   Step Code: ${r.protocol}\n   Explanation: ${r.protocolExplanation}`).join('\n\n')}
+Selected Recommendations:
+${selectedRecommendations.map((r, i) => `${i + 1}. ${r.text}\n   Step Code: ${r.protocol}\n   Explanation: ${r.protocolExplanation}`).join('\n\n')}
 
 Generated on: ${new Date().toLocaleString()}
     `.trim();
@@ -894,11 +900,19 @@ Generated on: ${new Date().toLocaleString()}
                     <Leaf className="w-16 md:w-24 h-16 md:h-24 rotate-12" />
                   </div>
                   <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Leaf className="w-5 h-5 text-tool-green" />
-                      <h3 className="text-base md:text-lg font-bold uppercase tracking-tighter">
-                        {result!.interventionPlan.title}
-                      </h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Leaf className="w-5 h-5 text-tool-green" />
+                        <h3 className="text-base md:text-lg font-bold uppercase tracking-tighter">
+                          {result!.interventionPlan.title}
+                        </h3>
+                      </div>
+                      <button 
+                        onClick={() => setIsCustomizingPlan(!isCustomizingPlan)}
+                        className="text-[10px] font-mono uppercase bg-white/10 hover:bg-white/20 px-3 py-1 border border-white/10 transition-colors"
+                      >
+                        {isCustomizingPlan ? 'Close Library' : 'Customize Plan'}
+                      </button>
                     </div>
                     
                     <div className="space-y-4">
@@ -906,34 +920,95 @@ Generated on: ${new Date().toLocaleString()}
                         <span className="text-tool-green font-bold uppercase mr-2">Rationale:</span>
                         {result!.interventionPlan.rationale}
                       </div>
-                      
-                      <div className="grid grid-cols-1 gap-3">
-                        {result!.interventionPlan.recommendations.map((rec, idx) => (
+
+                      <AnimatePresence mode="wait">
+                        {isCustomizingPlan ? (
                           <motion.div 
-                            key={idx}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: idx * 0.1 }}
-                            className="flex items-start gap-3 p-3 md:p-4 bg-white/10 border border-white/10 rounded-sm"
+                            key="library"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="space-y-6"
                           >
-                            <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-tool-green text-audit-ink flex items-center justify-center text-[10px] md:text-xs font-bold shrink-0 mt-0.5">
-                              {idx + 1}
+                            <div className="border-b border-white/10 pb-2">
+                              <h4 className="text-xs font-mono uppercase text-tool-green">Recommendation Library</h4>
+                              <p className="text-[10px] opacity-60">Select 3-5 steps to build your custom intervention protocol.</p>
                             </div>
-                            <div className="space-y-1.5 md:space-y-2">
-                              <p className="text-sm md:text-base font-mono font-medium">{rec.text}</p>
-                              <div className="flex flex-col gap-0.5 md:gap-1">
-                                <span className="text-[9px] md:text-[10px] font-mono uppercase text-tool-green font-bold tracking-wider">Step Code: {rec.protocol}</span>
-                                <p className="text-[10px] md:text-xs font-mono opacity-70 italic leading-snug">{rec.protocolExplanation}</p>
-                              </div>
+                            <div className="grid grid-cols-1 gap-3">
+                              {result!.interventionPlan.library.map((rec, idx) => {
+                                const isSelected = selectedRecommendations.some(s => s.protocol === rec.protocol);
+                                return (
+                                  <div 
+                                    key={idx}
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        setSelectedRecommendations(prev => prev.filter(p => p.protocol !== rec.protocol));
+                                      } else {
+                                        setSelectedRecommendations(prev => [...prev, rec]);
+                                      }
+                                    }}
+                                    className={cn(
+                                      "flex items-start gap-3 p-3 cursor-pointer border transition-all",
+                                      isSelected ? "bg-white/20 border-tool-green" : "bg-white/5 border-white/10 opacity-60 hover:opacity-100"
+                                    )}
+                                  >
+                                    <div className={cn(
+                                      "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5",
+                                      isSelected ? "bg-tool-green text-audit-ink" : "bg-white/20 text-white"
+                                    )}>
+                                      {isSelected ? '✓' : idx + 1}
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className="text-xs font-mono font-medium">{rec.text}</p>
+                                      <span className="text-[9px] font-mono uppercase text-tool-green opacity-80">Code: {rec.protocol}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </motion.div>
-                        ))}
-                      </div>
+                        ) : (
+                          <motion.div 
+                            key="active-plan"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="grid grid-cols-1 gap-3"
+                          >
+                            {selectedRecommendations.map((rec, idx) => (
+                              <motion.div 
+                                key={idx}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: idx * 0.1 }}
+                                className="flex items-start gap-3 p-3 md:p-4 bg-white/10 border border-white/10 rounded-sm"
+                              >
+                                <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-tool-green text-audit-ink flex items-center justify-center text-[10px] md:text-xs font-bold shrink-0 mt-0.5">
+                                  {idx + 1}
+                                </div>
+                                <div className="space-y-1.5 md:space-y-2">
+                                  <p className="text-sm md:text-base font-mono font-medium">{rec.text}</p>
+                                  <div className="flex flex-col gap-0.5 md:gap-1">
+                                    <span className="text-[9px] md:text-[10px] font-mono uppercase text-tool-green font-bold tracking-wider">Step Code: {rec.protocol}</span>
+                                    <p className="text-[10px] md:text-xs font-mono opacity-70 italic leading-snug">{rec.protocolExplanation}</p>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                            {selectedRecommendations.length === 0 && (
+                              <div className="p-8 border border-dashed border-white/20 text-center">
+                                <p className="text-xs font-mono opacity-50">No steps selected. Open the library to build your plan.</p>
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     <div className="mt-6 md:mt-8 flex flex-wrap items-center gap-3 md:gap-4 text-[9px] md:text-xs font-mono opacity-60 uppercase">
                       <span>Status: ACTIVE</span>
                       <span>Ref: RE-BALANCE-{result!.classification.split(' ')[0].toUpperCase()}</span>
+                      <span>Selected: {selectedRecommendations.length} Steps</span>
                     </div>
                   </div>
                 </section>

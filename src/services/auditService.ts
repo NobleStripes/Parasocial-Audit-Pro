@@ -47,7 +47,8 @@ export interface AuditResult {
   analysisReport: string;
   interventionPlan: {
     title: string;
-    recommendations: Recommendation[];
+    recommendations: Recommendation[]; // The initial "active" set
+    library: Recommendation[]; // A larger pool of context-aware suggestions
     rationale: string;
   };
 }
@@ -85,7 +86,9 @@ BEHAVIOR PATTERNS (Layman's Terms):
 INTERVENTION PLAN (Modular & Non-Satire):
 Provide a clear, modular action plan. This section must NOT be satirical. It should be practical and helpful.
 - title: A clear, helpful name for the recovery plan (e.g., "Digital Balance Plan").
-- recommendations: A list of 3-5 modular steps, each containing:
+- recommendations: A list of 3-5 primary modular steps for the initial plan.
+- library: A larger pool of 8-10 context-aware suggestions that the user can choose from to customize their plan.
+Each recommendation (in both lists) must contain:
     - text: A simple, actionable real-world activity.
     - protocol: A short code for the technique (e.g., "Balance-1", "Reset-24").
     - protocolExplanation: Why this specific step helps in simple terms.
@@ -186,9 +189,21 @@ export async function auditBehavioralData(text: string, images?: { data: string,
                   required: ["text", "protocol", "protocolExplanation"]
                 } 
               },
+              library: { 
+                type: Type.ARRAY, 
+                items: { 
+                  type: Type.OBJECT,
+                  properties: {
+                    text: { type: Type.STRING },
+                    protocol: { type: Type.STRING },
+                    protocolExplanation: { type: Type.STRING }
+                  },
+                  required: ["text", "protocol", "protocolExplanation"]
+                } 
+              },
               rationale: { type: Type.STRING }
             },
-            required: ["title", "recommendations", "rationale"]
+            required: ["title", "recommendations", "library", "rationale"]
           }
         },
         required: ["classification", "confidence", "summary", "imagineAnalysis", "legacyAttachment", "versionMourningTriggered", "heatmap", "analysisReport", "interventionPlan"]
