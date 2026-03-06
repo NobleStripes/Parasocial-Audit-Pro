@@ -368,7 +368,7 @@ Generated on: ${new Date().toLocaleString()}
   ] : [];
 
   return (
-    <div className="min-h-screen bg-audit-bg selection:bg-audit-ink selection:text-audit-bg">
+    <div className="min-h-[100dvh] bg-audit-bg selection:bg-audit-ink selection:text-audit-bg overflow-x-hidden">
       {/* Header */}
       <header className="border-b border-audit-line p-6 flex justify-between items-center bg-white/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="flex items-center gap-3">
