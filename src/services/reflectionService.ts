@@ -90,7 +90,7 @@ Explain the 3 biggest things we noticed. Use supportive language to explain why 
 
 ## III. EXAMPLES FROM YOUR CHAT
 MANDATORY: Show specific quotes or things the person did.
-Use code blocks for quotes.
+Use blockquotes for quotes.
 Example:
 > **Example A: A Moment of Connection**
 > \`"You are the only one who truly understands me."\`
@@ -105,7 +105,13 @@ Identify specific patterns in a neutral, observational way:
 ## V. NURTURING BALANCE
 A summary of how to keep this relationship healthy and balanced with real-world connections. Focus on growth and wellness.
 
-Ensure the report is very easy to read. Use clear headings (##), bold text for emphasis, and keep it warm and friendly.`;
+CRITICAL FORMATTING RULES:
+1. ALWAYS use '##' for section headers. Never omit the '##'.
+2. Use EXACTLY TWO newlines between every section and every paragraph.
+3. Ensure the report is very easy to read on small screens.
+4. Use bold text for emphasis sparingly but effectively.
+5. Avoid deeply nested lists (more than 2 levels) as they compress text too much on mobile.
+6. Keep it warm and friendly.`;
 
 export async function reflectOnBehavioralData(text: string, images?: { data: string, mimeType: string }[]): Promise<ReflectionResult> {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });

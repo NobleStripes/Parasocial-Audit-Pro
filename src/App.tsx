@@ -961,6 +961,10 @@ Generated on: ${new Date().toLocaleString()}
 
                     <div className="reflection-report supportive-report text-sm md:text-base leading-relaxed text-reflection-ink/90">
                       <Markdown>{result!.analysisReport}</Markdown>
+                      <div className="mt-10 pt-6 border-t border-reflection-line/10 italic text-xs md:text-sm opacity-70">
+                        <p>With care,</p>
+                        <p className="font-serif font-bold mt-1">Your Digital Wellness Guide</p>
+                      </div>
                     </div>
 
                     <div className="mt-12 pt-8 border-t border-reflection-line/10 flex flex-col md:flex-row justify-between items-end gap-8">
