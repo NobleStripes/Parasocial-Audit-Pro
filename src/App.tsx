@@ -77,6 +77,7 @@ export default function App() {
   const [isCustomizingPlan, setIsCustomizingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAutoReflect, setIsAutoReflect] = useState(true);
+  const [isAutoReflectPending, setIsAutoReflectPending] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -186,6 +187,8 @@ export default function App() {
     if (!textToReflect.trim() && images.length === 0) return;
     if (textToReflect.length < 20 && images.length === 0) return;
     
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    setIsAutoReflectPending(false);
     setIsReflecting(true);
     setReflectionSessionId(Math.random().toString(36).substr(2, 9));
     setReflectionNeuralLoad((Math.random() * 100).toFixed(1) + '%');
@@ -228,14 +231,21 @@ export default function App() {
   useEffect(() => {
     if (!isAutoReflect || (!transcript.trim() && images.length === 0)) {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      setIsAutoReflectPending(false);
       return;
     }
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
-    debounceTimer.current = setTimeout(() => {
-      handleReflect();
-    }, 2500);
+    if (transcript.length >= 50 || images.length > 0) {
+      setIsAutoReflectPending(true);
+      debounceTimer.current = setTimeout(() => {
+        setIsAutoReflectPending(false);
+        handleReflect();
+      }, 2500);
+    } else {
+      setIsAutoReflectPending(false);
+    }
 
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -419,16 +429,44 @@ Generated on: ${new Date().toLocaleString()}
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="w-5 h-5" />
                 <h2 className="font-serif italic text-lg font-semibold">Conversation Data</h2>
+                <div className="hidden sm:flex items-center gap-1.5 ml-2 px-2 py-0.5 bg-reflection-ink/5 rounded-full border border-reflection-line/10">
+                  <motion.div 
+                    animate={isReflecting || isAutoReflectPending ? { 
+                      scale: [1, 1.2, 1],
+                      opacity: [0.5, 1, 0.5]
+                    } : {}}
+                    transition={{ duration: 1, repeat: Infinity }}
+                    className={cn(
+                      "w-1.5 h-1.5 rounded-full transition-all duration-300",
+                      isReflecting ? "bg-casual-blue" : 
+                      isAutoReflectPending ? "bg-simp-red" :
+                      result ? "bg-tool-green" : "bg-reflection-ink/20"
+                    )}
+                  />
+                  <span className="text-[9px] font-mono uppercase opacity-60">
+                    {isReflecting ? 'Processing' : isAutoReflectPending ? 'Pending' : result ? 'Synced' : 'Idle'}
+                  </span>
+                </div>
               </div>
               <button 
                 onClick={() => setIsAutoReflect(!isAutoReflect)}
                 className={cn(
-                  "flex items-center gap-1.5 px-2 py-1 rounded-sm border text-[10px] font-mono uppercase transition-all",
+                  "flex items-center gap-1.5 px-2 py-1 rounded-sm border text-[10px] font-mono uppercase transition-all relative overflow-hidden",
                   isAutoReflect 
                     ? "bg-tool-green/10 border-tool-green text-tool-green" 
                     : "bg-reflection-ink/5 border-reflection-line/30 text-reflection-ink/50"
                 )}
               >
+                {isAutoReflect && (
+                  <motion.div 
+                    animate={{ 
+                      opacity: [0.4, 1, 0.4],
+                      scale: [0.8, 1.1, 0.8]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="w-1.5 h-1.5 rounded-full bg-tool-green mr-1"
+                  />
+                )}
                 {isAutoReflect ? <Zap className="w-3 h-3" /> : <ZapOff className="w-3 h-3" />}
                 Auto-Reflect: {isAutoReflect ? 'ON' : 'OFF'}
               </button>
@@ -436,12 +474,55 @@ Generated on: ${new Date().toLocaleString()}
             <p className="text-xs opacity-60 mb-4 font-mono">Paste your chat logs or upload screenshots of your conversations for analysis.</p>
             
             <div className="space-y-4">
-              <textarea
-                value={transcript}
-                onChange={(e) => setTranscript(e.target.value)}
-                placeholder="[User]: Hello... [AI]: Hi there!... (Supports Grok, ChatGPT, Claude, Gemini transcripts)"
-                className="w-full h-48 md:h-64 p-4 bg-reflection-bg/30 border border-reflection-line font-mono text-sm focus:outline-none focus:ring-1 focus:ring-reflection-ink resize-none"
-              />
+              <div className="relative group">
+                <textarea
+                  value={transcript}
+                  onChange={(e) => setTranscript(e.target.value)}
+                  placeholder="[User]: Hello... [AI]: Hi there!... (Supports Grok, ChatGPT, Claude, Gemini transcripts)"
+                  className={cn(
+                    "w-full h-48 md:h-64 p-4 bg-reflection-bg/30 border font-mono text-sm focus:outline-none focus:ring-1 focus:ring-reflection-ink resize-none transition-all duration-500",
+                    isReflecting ? "border-casual-blue ring-1 ring-casual-blue/30" : 
+                    isAutoReflectPending ? "border-simp-red ring-1 ring-simp-red/30" : 
+                    "border-reflection-line"
+                  )}
+                />
+                <div className="absolute top-2 right-2 flex flex-col items-end gap-2 pointer-events-none">
+                  <AnimatePresence>
+                    {isReflecting && (
+                      <motion.div
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 10 }}
+                        className="flex items-center gap-1.5 px-2 py-1 bg-casual-blue text-white text-[9px] font-mono uppercase rounded-sm shadow-sm"
+                      >
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Processing
+                      </motion.div>
+                    )}
+                    {isAutoReflectPending && !isReflecting && (
+                      <motion.div
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 10 }}
+                        className="flex items-center gap-1.5 px-2 py-1 bg-simp-red text-white text-[9px] font-mono uppercase rounded-sm shadow-sm"
+                      >
+                        <Activity className="w-3 h-3 animate-pulse" />
+                        Auto-Reflect Pending
+                      </motion.div>
+                    )}
+                    {result && !isReflecting && !isAutoReflectPending && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="flex items-center gap-1.5 px-2 py-1 bg-tool-green text-white text-[9px] font-mono uppercase rounded-sm shadow-sm"
+                      >
+                        <ClipboardCheck className="w-3 h-3" />
+                        Synced
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
 
               {/* Live Heuristics Display */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -566,16 +647,6 @@ Generated on: ${new Date().toLocaleString()}
                 Clear
               </button>
             </div>
-            {isAutoReflect && (transcript.length > 0 || images.length > 0) && (transcript.length < 50 && images.length === 0) && !isReflecting && !result && (
-              <p className="mt-2 text-[11px] font-mono opacity-60 uppercase text-center italic">
-                Awaiting more data for auto-reflection...
-              </p>
-            )}
-            {isAutoReflect && (transcript.length >= 50 || images.length > 0) && !isReflecting && !result && (
-              <p className="mt-2 text-[11px] font-mono text-casual-blue uppercase text-center animate-pulse">
-                Auto-reflection pending (2.5s idle)...
-              </p>
-            )}
             {error && (
               <p className="mt-4 text-simp-red text-xs font-mono flex items-center gap-1">
                 <AlertTriangle className="w-4 h-4" /> {error}
