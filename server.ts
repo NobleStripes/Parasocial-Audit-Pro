@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import cors from "cors";
 import dotenv from "dotenv";
+import { reflectOnBehavioralData } from "./src/services/reflectionService.js";
 
 dotenv.config();
 
@@ -12,20 +13,38 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(cors());
-  app.use(express.json());
+  const allowedOrigin = process.env.APP_URL || "http://localhost:3000";
+  app.use(cors({ origin: allowedOrigin }));
+  app.use(express.json({ limit: "10mb" }));
 
   // API routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
 
+  app.post("/api/reflect", async (req, res, next) => {
+    try {
+      const { text, images } = req.body as {
+        text: string;
+        images?: { data: string; mimeType: string }[];
+      };
+      if (typeof text !== "string") {
+        res.status(400).json({ error: "text field is required" });
+        return;
+      }
+      const result = await reflectOnBehavioralData(text, images);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { 
+      server: {
         middlewareMode: true,
         host: '0.0.0.0',
         port: 3000
@@ -40,6 +59,11 @@ async function startServer() {
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
+
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("Unhandled server error:", err.message);
+    res.status(500).json({ error: "Internal server error" });
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server is listening on all interfaces (0.0.0.0) at port ${PORT}`);

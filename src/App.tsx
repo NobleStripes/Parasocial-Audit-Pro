@@ -49,9 +49,8 @@ import {
   ANTHROPOMORPHIC_WORDS, 
   GASLIGHTING_WORDS 
 } from './constants';
-import { 
-  reflectOnBehavioralData, 
-  ReflectionResult, 
+import {
+  ReflectionResult,
   Classification,
   Recommendation
 } from './services/reflectionService';
@@ -191,7 +190,19 @@ export default function App() {
     setReflectionNeuralLoad((Math.random() * 100).toFixed(1) + '%');
     setError(null);
     try {
-      const data = await reflectOnBehavioralData(textToReflect, images.map(img => ({ data: img.data, mimeType: img.mimeType })));
+      const response = await fetch('/api/reflect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: textToReflect,
+          images: images.map(img => ({ data: img.data, mimeType: img.mimeType })),
+        }),
+      });
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error((errBody as { error?: string }).error || `Server error ${response.status}`);
+      }
+      const data: ReflectionResult = await response.json();
       setResult(data);
       setSelectedRecommendations(data.wellnessPlan.recommendations);
     } catch (err) {
