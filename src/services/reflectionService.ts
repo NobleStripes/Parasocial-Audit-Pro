@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Part } from "@google/genai";
 
 export enum Classification {
   INSTRUMENT = "Tool / Assistant",
@@ -114,9 +114,12 @@ CRITICAL FORMATTING RULES:
 6. Keep it warm and friendly.`;
 
 export async function reflectOnBehavioralData(text: string, images?: { data: string, mimeType: string }[]): Promise<ReflectionResult> {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY is not configured on the server.');
+  }
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  
-  const parts: any[] = [{ text: `Reflect on this behavioral data (text and/or images): \n\n${text}` }];
+
+  const parts: Part[] = [{ text: `Reflect on this behavioral data (text and/or images): \n\n${text}` }];
   
   if (images && images.length > 0) {
     images.forEach(img => {
@@ -219,5 +222,11 @@ export async function reflectOnBehavioralData(text: string, images?: { data: str
     }
   });
 
-  return JSON.parse(response.text || "{}");
+  const raw = response.text;
+  if (!raw) throw new Error('Gemini returned an empty response.');
+  try {
+    return JSON.parse(raw) as ReflectionResult;
+  } catch {
+    throw new Error('Gemini response was not valid JSON.');
+  }
 }
