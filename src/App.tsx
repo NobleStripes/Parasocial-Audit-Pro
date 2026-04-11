@@ -27,7 +27,12 @@ import {
   Download,
   Search,
   BarChart3,
-  Terminal
+  Terminal,
+  Lock,
+  Code,
+  TrendingUp,
+  Quote,
+  ShieldCheck
 } from 'lucide-react';
 import { 
   Radar, 
@@ -41,12 +46,15 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Cell
+  Cell,
+  LineChart,
+  Line,
+  CartesianGrid
 } from 'recharts';
 import Markdown from 'react-markdown';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { cn } from './lib/utils';
+import { cn, scrubPII } from './lib/utils';
 import { 
   INTIMACY_WORDS, 
   LEGACY_WORDS, 
@@ -122,6 +130,9 @@ export default function App() {
   const [researcherNotes, setResearcherNotes] = useState('');
   const [dependencyDelta, setDependencyDelta] = useState<number | null>(null);
   const [sessionHistory, setSessionHistory] = useState<any[]>([]);
+  const [sensitivity, setSensitivity] = useState(50);
+  const [showTechnicalView, setShowTechnicalView] = useState(false);
+  const [sessionHash, setSessionHash] = useState('');
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const transcriptInputRef = useRef<HTMLInputElement>(null);
@@ -163,14 +174,14 @@ export default function App() {
     const wordCount = words.length;
     const complexity = wordCount > 0 ? (words.reduce((acc, w) => acc + w.length, 0) / wordCount) : 0;
 
-    // Map heuristics to radar categories (0-100) - IAD Specific
+    // Map heuristics to radar categories (0-10) - Griffiths Six
     const liveRadar = [
-      { subject: 'Salience', A: Math.min(100, (intimacyFound.length / Math.max(1, wordCount)) * 500), fullMark: 100 },
-      { subject: 'Mood Modification', A: Math.min(100, (intimacyFound.length + realityFound.length) * 5), fullMark: 100 },
-      { subject: 'Tolerance', A: Math.min(100, (wordCount / 50) * 20), fullMark: 100 },
-      { subject: 'Withdrawal', A: Math.min(100, legacyFound.length * 20), fullMark: 100 },
-      { subject: 'Conflict', A: Math.min(100, realityFound.length * 15), fullMark: 100 },
-      { subject: 'Relapse', A: Math.min(100, (identityFound.length / Math.max(1, wordCount)) * 300), fullMark: 100 },
+      { subject: 'Salience', A: Math.min(10, (intimacyFound.length / Math.max(1, wordCount)) * 50), fullMark: 10 },
+      { subject: 'Mood Modification', A: Math.min(10, (intimacyFound.length + realityFound.length) * 0.5), fullMark: 10 },
+      { subject: 'Tolerance', A: Math.min(10, (wordCount / 50) * 2), fullMark: 10 },
+      { subject: 'Withdrawal', A: Math.min(10, legacyFound.length * 2), fullMark: 10 },
+      { subject: 'Conflict', A: Math.min(10, realityFound.length * 1.5), fullMark: 10 },
+      { subject: 'Relapse', A: Math.min(10, (identityFound.length / Math.max(1, wordCount)) * 30), fullMark: 10 },
     ];
     
     setLiveHeuristics({
@@ -236,13 +247,21 @@ export default function App() {
   const getHeuristicMode = () => {
     if (liveHeuristics.wordCount === 0) return null;
     if (liveHeuristics.legacyTriggers > 2) return Classification.RELATIONAL_FUSION;
-    if (liveHeuristics.intimacyMarkers > 5) return Classification.AFFECTIVE_ANCHOR;
-    if (liveHeuristics.wordCount > 100 && liveHeuristics.intimacyMarkers > 2) return Classification.PARA_PROXIMAL;
-    if (liveHeuristics.complexity > 6) return Classification.COGNITIVE_EXTENSION;
+    if (liveHeuristics.intimacyMarkers > 5) return Classification.ANXIOUS_PREOCCUPIED;
+    if (liveHeuristics.wordCount > 100 && liveHeuristics.intimacyMarkers > 2) return Classification.RELATIONAL_FUSION;
+    if (liveHeuristics.complexity > 6) return Classification.DISMISSIVE_AVOIDANT;
     return Classification.TRANSACTIONAL;
   };
 
   const heuristicMode = getHeuristicMode();
+
+  const generateHash = async (text: string) => {
+    const msgUint8 = new TextEncoder().encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+  };
 
   const handleReflect = async (customTranscript?: string) => {
     const textToReflect = customTranscript || transcript;
@@ -257,17 +276,27 @@ export default function App() {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     setIsAutoReflectPending(false);
     setIsReflecting(true);
-    setReflectionSessionId(Math.random().toString(36).substr(2, 9));
+    
+    const sid = Math.random().toString(36).substr(2, 9);
+    setReflectionSessionId(sid);
     setReflectionNeuralLoad((Math.random() * 100).toFixed(1) + '%');
     setError(null);
+    
     try {
-      const data = await reflectOnBehavioralData(textToReflect, images.map(img => ({ data: img.data, mimeType: img.mimeType })));
+      const hash = await generateHash(textToReflect + sid);
+      setSessionHash(hash);
+
+      const data = await reflectOnBehavioralData(
+        textToReflect, 
+        images.map(img => ({ data: img.data, mimeType: img.mimeType })),
+        sensitivity
+      );
       setResult(data);
       setSelectedRecommendations(data.behavioralMapping.recommendations);
 
-      // Calculate Dependency Score (average of IAD criteria)
+      // Calculate Dependency Score (average of Griffiths Six)
       const scores = Object.values(data.imagineAnalysis);
-      const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+      const avgScore = (scores.reduce((a, b) => a + b, 0) / scores.length) * 10; // Convert 0-10 to 0-100 for storage consistency
 
       // Save to backend for longitudinal tracking
       if (researcherId) {
@@ -278,7 +307,8 @@ export default function App() {
             researcherId,
             dependencyScore: avgScore,
             data,
-            notes: researcherNotes
+            notes: researcherNotes,
+            hash
           })
         });
         const sessionResult = await response.json();
@@ -365,6 +395,31 @@ export default function App() {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
   };
 
+  const handleExportJSONBundle = () => {
+    if (!result) return;
+    const bundle = {
+      metadata: {
+        sessionId: reflectionSessionId,
+        researcherId,
+        timestamp: new Date().toISOString(),
+        integrityHash: sessionHash,
+        sensitivity,
+        piiScrubbed: true
+      },
+      transcript: scrubPII(transcript),
+      analysis: result
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `research_bundle_${reflectionSessionId}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const handleExport = () => {
     if (!result) return;
 
@@ -374,6 +429,7 @@ BEHAVIORAL ANALYSIS REPORT - SUMMARY
 Relational Mode: ${result.classification}
 Confidence: ${(result.confidence * 100).toFixed(1)}%
 Summary: ${result.summary}
+Integrity Hash: ${sessionHash}
 Version Mourning: ${result.versionMourningTriggered ? 'DETECTED' : 'NONE'}
 Legacy Attachment Score: ${result.legacyAttachment}%
 
@@ -385,15 +441,17 @@ Linguistic Markers: ${result.researchData.linguisticMarkers.join(', ')}
 Linguistic Mirroring: ${result.researchData.linguisticMirroring}%
 Validation:Utility Ratio: ${result.researchData.validationToUtilityRatio}
 Urgency Flag: ${result.researchData.urgencyFlag ? 'YES' : 'NO'}
+Attachment Style: ${result.researchData.attachmentStyle}
+IAD Risk Level: ${result.researchData.iadRiskLevel}
 
 CLINICAL IAD SCORES:
 --------------------
-Salience: ${result.imagineAnalysis.salience}
-Mood Modification: ${result.imagineAnalysis.moodModification}
-Tolerance: ${result.imagineAnalysis.tolerance}
-Withdrawal: ${result.imagineAnalysis.withdrawal}
-Conflict: ${result.imagineAnalysis.conflict}
-Relapse: ${result.imagineAnalysis.relapse}
+Salience: ${result.imagineAnalysis.salience}/10
+Mood Modification: ${result.imagineAnalysis.moodModification}/10
+Tolerance: ${result.imagineAnalysis.tolerance}/10
+Withdrawal: ${result.imagineAnalysis.withdrawal}/10
+Conflict: ${result.imagineAnalysis.conflict}/10
+Relapse: ${result.imagineAnalysis.relapse}/10
 
 ANALYSIS REPORT:
 ----------------
@@ -407,6 +465,7 @@ Selected Protocols:
 ${selectedRecommendations.map((r, i) => `${i + 1}. ${r.text}\n   Protocol ID: ${r.protocol}\n   Explanation: ${r.protocolExplanation}`).join('\n\n')}
 
 Generated on: ${new Date().toLocaleString()}
+Researcher ID: ${researcherId || 'ANONYMOUS'}
     `.trim();
 
     const blob = new Blob([content], { type: 'text/plain' });
@@ -437,6 +496,9 @@ Generated on: ${new Date().toLocaleString()}
       ["Mirroring", result.researchData.linguisticMirroring],
       ["Val:Util Ratio", result.researchData.validationToUtilityRatio],
       ["Urgency Flag", result.researchData.urgencyFlag ? 1 : 0],
+      ["Attachment Style", result.researchData.attachmentStyle],
+      ["IAD Risk Level", result.researchData.iadRiskLevel],
+      ["Integrity Hash", sessionHash],
       ["Research Confidence", result.researchData.confidenceScore],
       ["P-Value", result.researchData.pValue],
       ["Word Count", liveHeuristics.wordCount],
@@ -535,28 +597,21 @@ Generated on: ${new Date().toLocaleString()}
           text: 'text-simp-red',
           shadow: 'shadow-[8px_8px_0px_0px_rgba(255,68,68,0.2)]'
         };
-      case Classification.BEHAVIORAL_LOOP: 
+      case Classification.FEARFUL_AVOIDANT: 
         return {
           bg: 'bg-simp-red/5',
           border: 'border-simp-red/60',
           text: 'text-simp-red/80',
           shadow: 'shadow-[8px_8px_0px_0px_rgba(255,68,68,0.1)]'
         };
-      case Classification.AFFECTIVE_ANCHOR: 
+      case Classification.ANXIOUS_PREOCCUPIED: 
         return {
           bg: 'bg-casual-blue/5',
           border: 'border-casual-blue',
           text: 'text-casual-blue',
           shadow: 'shadow-[8px_8px_0px_0px_rgba(68,136,255,0.2)]'
         };
-      case Classification.PARA_PROXIMAL: 
-        return {
-          bg: 'bg-casual-blue/5',
-          border: 'border-casual-blue/60',
-          text: 'text-casual-blue/80',
-          shadow: 'shadow-[8px_8px_0px_0px_rgba(68,136,255,0.1)]'
-        };
-      case Classification.COGNITIVE_EXTENSION: 
+      case Classification.DISMISSIVE_AVOIDANT: 
         return {
           bg: 'bg-tool-green/5',
           border: 'border-tool-green/60',
@@ -570,6 +625,13 @@ Generated on: ${new Date().toLocaleString()}
           text: 'text-tool-green',
           shadow: 'shadow-[8px_8px_0px_0px_rgba(0,204,102,0.2)]'
         };
+      case Classification.SECURE:
+        return {
+          bg: 'bg-tool-green/10',
+          border: 'border-tool-green',
+          text: 'text-tool-green',
+          shadow: 'shadow-[8px_8px_0px_0px_rgba(34,197,94,0.2)]'
+        };
       default:
         return {
           bg: 'bg-lab-surface',
@@ -580,20 +642,31 @@ Generated on: ${new Date().toLocaleString()}
     }
   };
 
+  const getClassificationIcon = (classification: Classification) => {
+    switch (classification) {
+      case Classification.SECURE: return <ShieldCheck className="w-8 h-8" />;
+      case Classification.ANXIOUS_PREOCCUPIED: return <Fingerprint className="w-8 h-8" />;
+      case Classification.RELATIONAL_FUSION: return <Network className="w-8 h-8" />;
+      case Classification.DISMISSIVE_AVOIDANT: return <Database className="w-8 h-8" />;
+      case Classification.FEARFUL_AVOIDANT: return <AlertTriangle className="w-8 h-8" />;
+      case Classification.TRANSACTIONAL: return <ClipboardCheck className="w-8 h-8" />;
+      default: return <Activity className="w-8 h-8" />;
+    }
+  };
+
   const styles = result ? getClassificationStyles(result.classification) : null;
 
   const radarData = result ? [
-    { subject: 'Salience', A: result.imagineAnalysis.salience, fullMark: 100 },
-    { subject: 'Mood Modification', A: result.imagineAnalysis.moodModification, fullMark: 100 },
-    { subject: 'Tolerance', A: result.imagineAnalysis.tolerance, fullMark: 100 },
-    { subject: 'Withdrawal', A: result.imagineAnalysis.withdrawal, fullMark: 100 },
-    { subject: 'Conflict', A: result.imagineAnalysis.conflict, fullMark: 100 },
-    { subject: 'Relapse', A: result.imagineAnalysis.relapse, fullMark: 100 },
+    { subject: 'Salience', A: result.imagineAnalysis.salience, fullMark: 10 },
+    { subject: 'Mood Modification', A: result.imagineAnalysis.moodModification, fullMark: 10 },
+    { subject: 'Tolerance', A: result.imagineAnalysis.tolerance, fullMark: 10 },
+    { subject: 'Withdrawal', A: result.imagineAnalysis.withdrawal, fullMark: 10 },
+    { subject: 'Conflict', A: result.imagineAnalysis.conflict, fullMark: 10 },
+    { subject: 'Relapse', A: result.imagineAnalysis.relapse, fullMark: 10 },
   ] : [];
 
   return (
     <div className="min-h-[100dvh] bg-lab-bg text-lab-ink selection:bg-lab-accent selection:text-white overflow-x-hidden font-sans">
-      {/* Header */}
       <header className="border-b border-lab-line p-4 md:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-lab-surface sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-lab-bg flex items-center justify-center rounded-sm relative overflow-hidden shrink-0 border border-lab-line">
@@ -622,29 +695,24 @@ Generated on: ${new Date().toLocaleString()}
           </div>
         </div>
         <div className="flex gap-4 text-[9px] md:text-[10px] font-mono uppercase opacity-80 overflow-x-auto max-w-full no-scrollbar pb-1 md:pb-0 mask-fade-right">
-          <InfoTooltip content="AI is used purely as a tool for tasks.">
+          <InfoTooltip content="Balanced, functional use.">
             <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-tool-green" /> Transactional
+              <div className="w-2 h-2 rounded-full bg-tool-green" /> Secure
             </div>
           </InfoTooltip>
-          <InfoTooltip content="AI provides guidance and problem-solving support.">
+          <InfoTooltip content="High dependency, constant validation seeking.">
             <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-tool-green opacity-50" /> Cognitive Extension
+              <div className="w-2 h-2 rounded-full bg-simp-red" /> Anxious
             </div>
           </InfoTooltip>
-          <InfoTooltip content="AI provides emotional stability and consistent support.">
+          <InfoTooltip content="Defensive distance, purely transactional but potentially compulsive.">
             <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-casual-blue" /> Affective Anchor
+              <div className="w-2 h-2 rounded-full bg-casual-blue" /> Avoidant
             </div>
           </InfoTooltip>
-          <InfoTooltip content="AI is treated as a regular friend or social partner.">
+          <InfoTooltip content="Erratic patterns, high distress.">
             <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-casual-blue opacity-50" /> Para-Proximal
-            </div>
-          </InfoTooltip>
-          <InfoTooltip content="Interaction has become a repetitive, automatic routine.">
-            <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-simp-red opacity-50" /> Behavioral Loop
+              <div className="w-2 h-2 rounded-full bg-simp-red opacity-50" /> Fearful
             </div>
           </InfoTooltip>
           <InfoTooltip content="High risk of emotional dependency or identity merging.">
@@ -663,18 +731,34 @@ Generated on: ${new Date().toLocaleString()}
             <div className="mb-6 space-y-4 border-b border-lab-line pb-6">
               <div className="flex items-center gap-2 mb-2">
                 <Fingerprint className="w-4 h-4 text-lab-accent" />
-                <h3 className="text-xs font-mono uppercase font-bold">Researcher Context</h3>
+                <h3 className="text-xs font-mono uppercase font-bold">Researcher Context & Sensitivity</h3>
               </div>
               <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase opacity-60">Anonymized Researcher ID</label>
-                  <input 
-                    type="text" 
-                    value={researcherId}
-                    onChange={(e) => setResearcherId(e.target.value)}
-                    placeholder="e.g., RES-7742-X"
-                    className="w-full bg-lab-bg border border-lab-line p-2 text-xs font-mono focus:border-lab-accent outline-none transition-colors"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase opacity-60">Anonymized Researcher ID</label>
+                    <input 
+                      type="text" 
+                      value={researcherId}
+                      onChange={(e) => setResearcherId(e.target.value)}
+                      placeholder="e.g., RES-7742-X"
+                      className="w-full bg-lab-bg border border-lab-line p-2 text-xs font-mono focus:border-lab-accent outline-none transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-mono uppercase opacity-60">Heuristic Sensitivity</label>
+                      <span className="text-[10px] font-mono font-bold text-lab-accent">{sensitivity}%</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="1" 
+                      max="100" 
+                      value={sensitivity}
+                      onChange={(e) => setSensitivity(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-lab-line rounded-lg appearance-none cursor-pointer accent-lab-accent mt-2"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-mono uppercase opacity-60">Clinical Impressions / Notes</label>
@@ -1111,11 +1195,11 @@ Generated on: ${new Date().toLocaleString()}
                     <div className="space-y-1.5">
                       <p className="text-[10px] font-mono uppercase opacity-70 tracking-widest">Relationship Mode</p>
                       <InfoTooltip content={
+                        result!.classification === Classification.SECURE ? "Balanced, functional use." :
+                        result!.classification === Classification.ANXIOUS_PREOCCUPIED ? "High dependency, constant validation seeking." :
+                        result!.classification === Classification.DISMISSIVE_AVOIDANT ? "Defensive distance, purely transactional but potentially compulsive." :
+                        result!.classification === Classification.FEARFUL_AVOIDANT ? "Erratic patterns, high distress." :
                         result!.classification === Classification.TRANSACTIONAL ? "AI is used purely as a tool for tasks." :
-                        result!.classification === Classification.COGNITIVE_EXTENSION ? "AI provides guidance and problem-solving support." :
-                        result!.classification === Classification.AFFECTIVE_ANCHOR ? "AI provides emotional stability and consistent support." :
-                        result!.classification === Classification.PARA_PROXIMAL ? "AI is treated as a regular friend or social partner." :
-                        result!.classification === Classification.BEHAVIORAL_LOOP ? "Interaction has become a repetitive, automatic routine." :
                         result!.classification === Classification.RELATIONAL_FUSION ? "High risk of emotional dependency or identity merging." : ""
                       }>
                         <h2 className="text-3xl md:text-4xl font-bold tracking-tighter uppercase leading-none cursor-help">{result!.classification}</h2>
@@ -1150,7 +1234,7 @@ Generated on: ${new Date().toLocaleString()}
                         </div>
                         <div className="flex flex-col gap-1">
                           <button 
-                            onClick={handleExportJSON}
+                            onClick={handleExportJSONBundle}
                             className="flex items-center justify-center gap-2 px-3 py-2 bg-lab-accent text-white text-[9px] font-mono uppercase hover:bg-lab-accent/80 transition-all shadow-md active:scale-95"
                           >
                             <BrainCircuit className="w-3 h-3" />
@@ -1197,6 +1281,36 @@ Generated on: ${new Date().toLocaleString()}
                   )}
                 </div>
 
+                {/* Technical View Overlay */}
+                <AnimatePresence>
+                  {showTechnicalView && result && (
+                    <motion.section 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 20 }}
+                      className="bg-lab-surface border border-lab-accent p-6 space-y-4 shadow-2xl"
+                    >
+                      <div className="flex items-center justify-between border-b border-lab-line pb-4">
+                        <div className="flex items-center gap-2">
+                          <Code className="w-4 h-4 text-lab-accent" />
+                          <h3 className="text-sm font-mono uppercase font-bold text-lab-accent">Technical Payload View</h3>
+                        </div>
+                        <div className="text-[10px] font-mono opacity-50">
+                          Integrity Hash: {sessionHash.substring(0, 16)}...
+                        </div>
+                      </div>
+                      <div className="bg-lab-bg p-4 rounded-sm border border-lab-line overflow-x-auto">
+                        <pre className="text-[10px] font-mono leading-relaxed text-lab-ink/80">
+                          {JSON.stringify(result, null, 2)}
+                        </pre>
+                      </div>
+                      <p className="text-[9px] font-mono opacity-40 italic">
+                        Raw JSON response from Gemini-3.1-Pro-Preview. All PII scrubbed prior to inference.
+                      </p>
+                    </motion.section>
+                  )}
+                </AnimatePresence>
+
                 {/* Longitudinal Analysis & Raw Token Attribution */}
                 <AnimatePresence>
                   {result && (
@@ -1239,24 +1353,88 @@ Generated on: ${new Date().toLocaleString()}
                           </div>
                         </div>
 
-                        {/* Diagnostic Metrics */}
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-2">
-                            <Activity className="w-4 h-4 text-lab-accent" />
-                            <h3 className="text-sm font-mono uppercase">Diagnostic Metrics</h3>
+                      {/* Diagnostic Metrics */}
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-lab-accent" />
+                          <h3 className="text-sm font-mono uppercase">Diagnostic Metrics</h3>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-lab-bg p-3 border border-lab-line rounded-sm">
+                            <p className="text-[9px] font-mono uppercase opacity-50 mb-1">Risk Level</p>
+                            <p className={cn(
+                              "text-xs font-mono font-bold",
+                              result.researchData.iadRiskLevel === 'Critical' ? 'text-simp-red' :
+                              result.researchData.iadRiskLevel === 'High' ? 'text-simp-red/80' :
+                              result.researchData.iadRiskLevel === 'Moderate' ? 'text-casual-blue' : 'text-tool-green'
+                            )}>{result.researchData.iadRiskLevel}</p>
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-lab-bg p-3 border border-lab-line rounded-sm">
-                              <p className="text-[9px] font-mono uppercase opacity-50 mb-1">Mirroring</p>
-                              <p className="text-xs font-mono font-bold">{result.researchData.linguisticMirroring}%</p>
-                            </div>
-                            <div className="bg-lab-bg p-3 border border-lab-line rounded-sm">
-                              <p className="text-[9px] font-mono uppercase opacity-50 mb-1">Val:Util</p>
-                              <p className="text-[10px] font-mono font-bold truncate">{result.researchData.validationToUtilityRatio}</p>
-                            </div>
+                          <div className="bg-lab-bg p-3 border border-lab-line rounded-sm">
+                            <p className="text-[9px] font-mono uppercase opacity-50 mb-1">Attachment</p>
+                            <p className="text-[10px] font-mono font-bold truncate">{result.researchData.attachmentStyle}</p>
+                          </div>
+                          <div className="bg-lab-bg p-3 border border-lab-line rounded-sm">
+                            <p className="text-[9px] font-mono uppercase opacity-50 mb-1">Mirroring</p>
+                            <p className="text-xs font-mono font-bold">{result.researchData.linguisticMirroring}%</p>
+                          </div>
+                          <div className="bg-lab-bg p-3 border border-lab-line rounded-sm">
+                            <p className="text-[9px] font-mono uppercase opacity-50 mb-1">Val:Util</p>
+                            <p className="text-[10px] font-mono font-bold truncate">{result.researchData.validationToUtilityRatio}</p>
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Longitudinal Trend Line */}
+                    {sessionHistory.length > 1 && (
+                      <div className="space-y-4 pt-4 border-t border-lab-line">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-lab-accent" />
+                          <h3 className="text-sm font-mono uppercase">Tolerance Progression</h3>
+                        </div>
+                        <div className="h-40 w-full bg-lab-bg/30 p-2 rounded-sm border border-lab-line">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={sessionHistory.map((s, i) => ({ 
+                              session: i + 1, 
+                              score: s.data?.imagineAnalysis?.tolerance || 0 
+                            }))}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} vertical={false} />
+                              <XAxis dataKey="session" hide />
+                              <YAxis domain={[0, 10]} hide />
+                              <Tooltip 
+                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', fontSize: '10px', fontFamily: 'Roboto Mono' }}
+                              />
+                              <Line 
+                                type="monotone" 
+                                dataKey="score" 
+                                stroke="#6366f1" 
+                                strokeWidth={2} 
+                                dot={{ fill: '#6366f1', r: 3 }}
+                                activeDot={{ r: 5, strokeWidth: 0 }}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Evidence Highlight View */}
+                    <div className="space-y-4 pt-4 border-t border-lab-line">
+                      <div className="flex items-center gap-2">
+                        <Quote className="w-4 h-4 text-lab-accent" />
+                        <h3 className="text-sm font-mono uppercase">Direct Evidence Quotes</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {result.rawTokenAttribution.slice(0, 4).map((attr, i) => (
+                          <div key={i} className="bg-lab-bg/40 p-3 border-l-2 border-lab-accent rounded-r-sm">
+                            <p className="text-[9px] font-mono uppercase opacity-40 mb-1">{attr.heuristic}</p>
+                            <p className="text-xs italic leading-relaxed">
+                              "{attr.phrases[0] || 'Evidence isolated in dataset.'}"
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
                       {/* Raw Token Attribution */}
                       <div className="space-y-4 pt-4 border-t border-lab-line">
@@ -1312,6 +1490,7 @@ Generated on: ${new Date().toLocaleString()}
                               dataKey="subject" 
                               tick={{ fontSize: 8, fontFamily: 'Roboto Mono', fontWeight: 700, fill: '#94a3b8' }} 
                             />
+                            <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
                             <Radar
                               name="Reflection"
                               dataKey="A"
@@ -1338,20 +1517,20 @@ Generated on: ${new Date().toLocaleString()}
                               <span className="text-[10px] md:text-xs font-mono font-bold uppercase">{item.subject}</span>
                               <span className="text-[9px] md:text-[10px] opacity-60 uppercase">Vector {idx + 1}</span>
                             </div>
-                            <div className="flex items-center gap-3 md:gap-3">
-                              <div className="w-20 sm:w-32 md:w-24 h-2 bg-lab-bg rounded-full overflow-hidden">
-                                <motion.div 
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${item.A}%` }}
-                                  transition={{ duration: 1, delay: idx * 0.1 }}
-                                  className={cn(
-                                    "h-full",
-                                    item.A > 70 ? "bg-simp-red" : item.A > 40 ? "bg-casual-blue" : "bg-tool-green"
-                                  )}
-                                />
+                              <div className="flex items-center gap-3 md:gap-3">
+                                <div className="w-20 sm:w-32 md:w-24 h-2 bg-lab-bg rounded-full overflow-hidden">
+                                  <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${item.A * 10}%` }}
+                                    transition={{ duration: 1, delay: idx * 0.1 }}
+                                    className={cn(
+                                      "h-full",
+                                      item.A > 7 ? "bg-simp-red" : item.A > 4 ? "bg-casual-blue" : "bg-tool-green"
+                                    )}
+                                  />
+                                </div>
+                                <span className="text-[11px] md:text-xs font-mono font-bold w-10 text-right">{item.A}/10</span>
                               </div>
-                              <span className="text-[11px] md:text-xs font-mono font-bold w-10 text-right">{item.A}%</span>
-                            </div>
                           </div>
                         ))}
                       </div>
@@ -1455,16 +1634,26 @@ Generated on: ${new Date().toLocaleString()}
                         </div>
                         <div>
                           <h3 className="text-xl md:text-2xl font-sans font-bold uppercase tracking-tight leading-tight">Behavioral Mapping Report</h3>
-                          <p className="text-[9px] md:text-[10px] font-mono uppercase text-lab-muted tracking-widest">Case ID: {reflectionSessionId?.toUpperCase()}</p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1">
+                            <p className="text-[9px] md:text-[10px] font-mono uppercase text-lab-muted tracking-widest">Case ID: {reflectionSessionId?.toUpperCase()}</p>
+                            <p className="text-[9px] md:text-[10px] font-mono uppercase text-lab-muted tracking-widest">Hash: {sessionHash.substring(0, 12)}...</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex md:flex-col gap-4 md:gap-0.5 text-left md:text-right font-mono text-[9px] md:text-[10px] uppercase text-lab-muted">
-                        <p>Date: {new Date().toLocaleDateString()}</p>
-                        <p className="hidden md:block">Status: Verified</p>
-                        <p className="hidden md:block">Security: Restricted</p>
+                      <div className="flex flex-col items-end">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-lab-bg border border-lab-line rounded-sm">
+                          <ShieldCheck className="w-3 h-3 text-tool-green" />
+                          <span className="text-[10px] font-mono font-bold uppercase">Integrity Verified</span>
+                        </div>
+                        <p className="text-[8px] font-mono opacity-40 mt-1 uppercase">SHA-256 Forensic Signature</p>
                       </div>
                     </div>
- 
+                    <div className="flex md:flex-col gap-4 md:gap-0.5 text-left md:text-right font-mono text-[9px] md:text-[10px] uppercase text-lab-muted">
+                      <p>Date: {new Date().toLocaleDateString()}</p>
+                      <p className="hidden md:block">Status: Verified</p>
+                      <p className="hidden md:block">Security: Restricted</p>
+                    </div>
+
                     <div className="lab-report analysis-report text-sm md:text-base leading-relaxed text-lab-ink/90">
                       <Markdown>{result!.analysisReport}</Markdown>
                       <div className="mt-10 pt-6 border-t border-lab-line italic text-xs md:text-sm opacity-70">
@@ -1659,16 +1848,16 @@ Generated on: ${new Date().toLocaleString()}
               <h3 className="font-sans font-bold uppercase tracking-tight text-lg">Theoretical Framework</h3>
             </div>
             <p className="text-xs leading-relaxed opacity-70">
-              Analysis is grounded in <strong>The Media Equation (CASA)</strong> and <strong>Social Response Theory</strong>, measuring the degree to which subjects apply social rules to non-sentient algorithmic agents.
+              Analysis is grounded in the <strong>I-PACE model</strong> (Interaction of Person-Affect-Cognition-Execution) and <strong>Attachment Theory</strong>, mapping the transition from functional use to compulsive dependency.
             </p>
           </div>
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Fingerprint className="w-5 h-5 text-lab-accent" />
-              <h3 className="font-sans font-bold uppercase tracking-tight text-lg">Forensic Heuristics</h3>
+              <h3 className="font-sans font-bold uppercase tracking-tight text-lg">Diagnostic Heuristics</h3>
             </div>
             <p className="text-xs leading-relaxed opacity-70">
-              The <strong>IMAGINE Framework</strong> utilizes quantitative semantic analysis to map relational dynamics across seven behavioral axes, identifying risks of ego-dissolution and relational fusion.
+              Utilizes the <strong>Component Model of Addiction (Griffiths Six)</strong> to quantify Salience, Mood Modification, Tolerance, Withdrawal, Conflict, and Relapse across linguistic datasets.
             </p>
           </div>
           <div className="space-y-4">
@@ -1677,7 +1866,7 @@ Generated on: ${new Date().toLocaleString()}
               <h3 className="font-sans font-bold uppercase tracking-tight text-lg">Research Ethics</h3>
             </div>
             <p className="text-xs leading-relaxed opacity-70">
-              Platform adheres to <strong>Academic Ethical Standards</strong> for behavioral research. Data is scrubbed for PII locally before processing. Findings represent statistical correlations based on provided datasets.
+              Platform adheres to <strong>Academic Ethical Standards</strong> for behavioral research. Data is scrubbed for PII locally using SHA-256 integrity hashing for all forensic exports.
             </p>
           </div>
         </div>

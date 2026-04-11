@@ -1,7 +1,7 @@
 {
   "name": "parasocial-audit-lab",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0-Research",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",

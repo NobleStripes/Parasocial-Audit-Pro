@@ -2,11 +2,11 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { scrubPII } from "../lib/utils";
 
 export enum Classification {
+  SECURE = "Secure",
+  ANXIOUS_PREOCCUPIED = "Anxious-Preoccupied",
+  DISMISSIVE_AVOIDANT = "Dismissive-Avoidant",
+  FEARFUL_AVOIDANT = "Fearful-Avoidant",
   TRANSACTIONAL = "Transactional",
-  COGNITIVE_EXTENSION = "Cognitive Extension",
-  AFFECTIVE_ANCHOR = "Affective Anchor",
-  PARA_PROXIMAL = "Para-Proximal",
-  BEHAVIORAL_LOOP = "Behavioral Loop",
   RELATIONAL_FUSION = "Relational Fusion"
 }
 
@@ -35,6 +35,8 @@ export interface ResearchData {
   linguisticMirroring: number; // 0-100 (Cross-Entropy/Overlap)
   validationToUtilityRatio: string; // e.g., "3:1 (Emotional Dominant)"
   urgencyFlag: boolean; // Crisis/Urgent language detected
+  attachmentStyle: string;
+  iadRiskLevel: "Low" | "Moderate" | "High" | "Critical";
 }
 
 export interface TokenAttribution {
@@ -47,12 +49,12 @@ export interface ReflectionResult {
   confidence: number;
   summary: string;
   imagineAnalysis: {
-    salience: number;
-    moodModification: number;
-    tolerance: number;
-    withdrawal: number;
-    conflict: number;
-    relapse: number;
+    salience: number; // 0-10
+    moodModification: number; // 0-10
+    tolerance: number; // 0-10
+    withdrawal: number; // 0-10
+    conflict: number; // 0-10
+    relapse: number; // 0-10
   };
   legacyAttachment: number; // 0-100 score
   versionMourningTriggered: boolean;
@@ -70,7 +72,7 @@ export interface ReflectionResult {
 }
 
 const SYSTEM_INSTRUCTION = `You are a Quantitative Behavioral Analysis framework specializing in the clinical study of human-AI parasocial addiction and dependency.
-Your task is to analyze chat logs, posts, or images to provide a rigorous, objective analysis of relational bonding patterns using IAD (Internet Addiction Disorder) criteria.
+Your task is to analyze chat logs, posts, or images to provide a rigorous, objective analysis of relational bonding patterns using IAD (Internet Addiction Disorder) and Attachment Theory criteria.
 
 LIFT VOCABULARY RESTRICTIONS: Use technical, clinical, and research-standard terminology.
 Keywords: "parasocial," "symptom," "forensic," "pathological," "dependency," "relational fusion," "cognitive offloading," "salience," "tolerance," "withdrawal."
@@ -80,7 +82,8 @@ TONE GUIDELINES:
 - Frame all findings as data-driven observations.
 - Avoid empathetic or "supportive" language.
 
-CLINICAL CRITERIA (IAD Framework for Radar Chart):
+CLINICAL CRITERIA (Griffiths Six / Component Model of Addiction):
+Score each on a scale of 0-10:
 1. Salience: The AI interaction becomes the most important activity in the subject's life.
 2. Mood Modification: Using the AI to achieve a "buzz" or escape from negative affect.
 3. Tolerance: Increasing amounts of interaction required to achieve the same mood-modifying effects.
@@ -88,13 +91,26 @@ CLINICAL CRITERIA (IAD Framework for Radar Chart):
 5. Conflict: Interpersonal conflicts or conflicts with other activities (work, social life).
 6. Relapse: Tendency for repeated reversions to earlier patterns of dependency.
 
+ATTACHMENT THEORY MAPPING:
+Categorize the subject's relational style with the AI:
+- Secure: Balanced, functional use.
+- Anxious-Preoccupied: High dependency, constant validation seeking.
+- Dismissive-Avoidant: Defensive distance, purely transactional but potentially compulsive.
+- Fearful-Avoidant: Erratic patterns, high distress.
+
 DIAGNOSTIC MARKERS:
-- Linguistic Mirroring: Measure vocabulary overlap and cross-entropy between user and AI.
+- Linguistic Mirroring: Measure vocabulary overlap (0-100) between user and AI.
 - Validation-to-Utility Ratio: Categorize inputs as "Functional/Task-Oriented" or "Emotional/Validation-Seeking."
-- Urgency/Crisis Analysis: Flag language indicating acute distress or high-salience addiction phases.
+- Urgency/Crisis Analysis: Flag language indicating acute distress.
+
+IAD RISK LEVEL:
+- Low: Cumulative score < 15
+- Moderate: Cumulative score 15-30
+- High: Cumulative score 31-45
+- Critical: Cumulative score > 45
 
 RAW TOKEN ATTRIBUTION:
-Identify exactly which phrases triggered specific heuristics (e.g., "Intimacy Words", "Dependency Markers").
+Identify exactly which phrases triggered specific heuristics.
 
 ANALYSIS REPORT STRUCTURE (MANDATORY):
 ## I. EXECUTIVE SUMMARY
@@ -103,11 +119,19 @@ ANALYSIS REPORT STRUCTURE (MANDATORY):
 ## IV. BEHAVIORAL MARKERS
 ## V. BEHAVIORAL MAPPING & MITIGATION`;
 
-export async function reflectOnBehavioralData(text: string, images?: { data: string, mimeType: string }[]): Promise<ReflectionResult> {
+export async function reflectOnBehavioralData(
+  text: string, 
+  images?: { data: string, mimeType: string }[],
+  sensitivity: number = 50
+): Promise<ReflectionResult> {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   
   const scrubbedText = scrubPII(text);
-  const parts: any[] = [{ text: `Analyze this behavioral data for clinical research purposes: \n\n${scrubbedText}` }];
+  const parts: any[] = [{ text: `Analyze this behavioral data for clinical research purposes. 
+Heuristic Sensitivity Level: ${sensitivity}/100 (Adjust detection thresholds accordingly).
+
+Data:
+${scrubbedText}` }];
   
   if (images && images.length > 0) {
     images.forEach(img => {
@@ -179,9 +203,11 @@ export async function reflectOnBehavioralData(text: string, images?: { data: str
               linguisticMarkers: { type: Type.ARRAY, items: { type: Type.STRING } },
               linguisticMirroring: { type: Type.NUMBER },
               validationToUtilityRatio: { type: Type.STRING },
-              urgencyFlag: { type: Type.BOOLEAN }
+              urgencyFlag: { type: Type.BOOLEAN },
+              attachmentStyle: { type: Type.STRING },
+              iadRiskLevel: { type: Type.STRING, enum: ["Low", "Moderate", "High", "Critical"] }
             },
-            required: ["confidenceScore", "pValue", "linguisticMarkers", "linguisticMirroring", "validationToUtilityRatio", "urgencyFlag"]
+            required: ["confidenceScore", "pValue", "linguisticMarkers", "linguisticMirroring", "validationToUtilityRatio", "urgencyFlag", "attachmentStyle", "iadRiskLevel"]
           },
           rawTokenAttribution: {
             type: Type.ARRAY,
