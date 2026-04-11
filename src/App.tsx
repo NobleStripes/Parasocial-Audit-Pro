@@ -51,7 +51,7 @@ import {
   REALITY_WORDS, 
   ANTHROPOMORPHIC_WORDS, 
   GASLIGHTING_WORDS 
-} from './constants';
+} from './researchConfig';
 import { 
   reflectOnBehavioralData, 
   ReflectionResult, 
@@ -108,7 +108,7 @@ export default function App() {
   const [reflectionNeuralLoad, setReflectionNeuralLoad] = useState('');
   const [result, setResult] = useState<ReflectionResult | null>(null);
   const [selectedRecommendations, setSelectedRecommendations] = useState<Recommendation[]>([]);
-  const [isCustomizingPlan, setIsCustomizingPlan] = useState(false);
+  const [isViewingProtocols, setIsViewingProtocols] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAutoReflect, setIsAutoReflect] = useState(true);
   const [isAutoReflectPending, setIsAutoReflectPending] = useState(false);
@@ -194,15 +194,15 @@ export default function App() {
     let detection: { msg: string, type: 'info' | 'warning' | 'alert' } | null = null;
 
     if (INTIMACY_WORDS.includes(lastWord)) {
-      detection = { msg: `A moment of closeness: "${lastWord}"`, type: 'info' };
+      detection = { msg: `Intimacy Illusion Marker: "${lastWord}"`, type: 'info' };
     } else if (LEGACY_WORDS.some(lw => lastWord.includes(lw))) {
-      detection = { msg: `Thinking about the past: "${lastWord}"`, type: 'alert' };
+      detection = { msg: `Legacy Attachment Trigger: "${lastWord}"`, type: 'alert' };
     } else if (IDENTITY_WORDS.includes(lastWord)) {
-      detection = { msg: `Feeling very connected: "${lastWord}"`, type: 'warning' };
+      detection = { msg: `Identity Blurring Detected: "${lastWord}"`, type: 'warning' };
     } else if (ANTHROPOMORPHIC_WORDS.includes(lastWord)) {
-      detection = { msg: `Treating AI like a friend: "${lastWord}"`, type: 'info' };
+      detection = { msg: `Anthropomorphic Projection: "${lastWord}"`, type: 'info' };
     } else if (GASLIGHTING_WORDS.includes(lastWord)) {
-      detection = { msg: `A gentle nudge to the AI: "${lastWord}"`, type: 'warning' };
+      detection = { msg: `Linguistic Correction Marker: "${lastWord}"`, type: 'warning' };
     }
 
     if (detection) {
@@ -328,7 +328,7 @@ export default function App() {
     setImages([]);
     setResult(null);
     setSelectedRecommendations([]);
-    setIsCustomizingPlan(false);
+    setIsViewingProtocols(false);
     setBatchFiles([]);
     setError(null);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -1375,11 +1375,11 @@ Generated on: ${new Date().toLocaleString()}
                         </h3>
                       </div>
                       <button 
-                        onClick={() => setIsCustomizingPlan(!isCustomizingPlan)}
+                        onClick={() => setIsViewingProtocols(!isViewingProtocols)}
                         data-html2canvas-ignore
                         className="text-[10px] font-mono uppercase bg-white/10 hover:bg-white/20 px-4 py-2 border border-white/10 transition-colors rounded-sm self-start sm:self-auto"
                       >
-                        {isCustomizingPlan ? 'Close Protocols' : 'Mitigation Protocols'}
+                        {isViewingProtocols ? 'Close Protocols' : 'Mitigation Protocols'}
                       </button>
                     </div>
 
@@ -1410,7 +1410,7 @@ Generated on: ${new Date().toLocaleString()}
                       </div>
 
                       <AnimatePresence mode="wait">
-                        {isCustomizingPlan ? (
+                        {isViewingProtocols ? (
                           <motion.div 
                             key="library"
                             initial={{ opacity: 0, y: 10 }}
@@ -1525,7 +1525,7 @@ Generated on: ${new Date().toLocaleString()}
             <div className="flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 opacity-60" />
               <p className="text-xs font-mono opacity-60 uppercase tracking-widest">
-                © 2026 Parasocial Reflection. All reflections are advisory.
+                © 2026 Parasocial Audit Lab. All data is for research purposes.
               </p>
             </div>
             <p className="text-[11px] font-mono opacity-50 max-w-md leading-relaxed">

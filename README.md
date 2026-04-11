@@ -1,27 +1,6 @@
-# Behavioral Analysis Lab: Quantitative Parasocial Research Platform
+# Parasocial Audit Lab: Quantitative Relational Analytics Platform
 
 A professional behavioral analysis framework designed for the forensic study of human-AI relational dynamics. This platform provides researchers with quantitative tools to map, measure, and analyze parasocial bonding patterns through semantic density and linguistic markers.
-
-## ⚠️ Academic Use & Ethics
-
-This application is intended for **behavioral research and quantitative analysis only**. It is not a clinical diagnostic tool. Researchers are responsible for:
-*   Obtaining explicit **subject consent** before data upload.
-*   Adhering to institutional **IRB (Institutional Review Board)** standards.
-*   Ensuring the ethical handling of sensitive behavioral datasets.
-
-## ⚖️ Data Privacy & Anonymization
-
-The platform includes a built-in **PII Anonymization Layer** that scrubs personally identifiable information (emails, phone numbers, names, locations) locally before data is transmitted for analysis. All processing is session-based; no persistent storage of raw datasets is maintained by the application.
-
-## 🛠 Technical Specification & Capabilities
-
-The Behavioral Analysis Lab is built on a high-density forensic framework:
-
-1.  **Quantitative Semantic Mapping**: Utilizes the **IMAGINE Framework** to measure relational dynamics across seven behavioral axes.
-2.  **Forensic Linguistic Markers**: Identifies specific triggers for anthropomorphic projection, relational displacement, and linguistic convergence.
-3.  **Batch Processing**: Supports the simultaneous analysis of multiple forensic transcripts (.txt) and visual evidence (screenshots).
-4.  **Statistical Export**: Generates high-fidelity datasets in **CSV**, **JSON**, and **PDF** formats for integration with statistical software (SPSS, R, Python).
-5.  **Real-Time Heuristics**: Live monitoring of word density, intimacy markers, and legacy attachment (Version Mourning) triggers.
 
 ## 🧠 Methodology & Theoretical Framework
 
@@ -38,6 +17,27 @@ Analyzes the subject's tendency to provide social responses to technology, even 
 
 ### 4. Relational Fusion & Identity Blurring
 Measures the longitudinal trajectory of the bond, identifying risks of ego-dissolution and the displacement of biological social capital.
+
+## 🛠 Technical Specification & Capabilities
+
+The Parasocial Audit Lab is built on a high-density forensic framework:
+
+1.  **Quantitative Semantic Mapping**: Utilizes the **IMAGINE Framework** to measure relational dynamics across seven behavioral axes.
+2.  **Forensic Linguistic Markers**: Identifies specific triggers for anthropomorphic projection, relational displacement, and linguistic convergence.
+3.  **Batch Processing**: Supports the simultaneous analysis of multiple forensic transcripts (.txt) and visual evidence (screenshots).
+4.  **Statistical Export**: Generates high-fidelity datasets in **CSV**, **JSON**, and **PDF** formats for integration with statistical software (SPSS, R, Python).
+5.  **Real-Time Heuristics**: Live monitoring of word density, intimacy markers, and legacy attachment (Version Mourning) triggers.
+
+## ⚠️ Academic Use & Ethics
+
+This application is intended for **behavioral research and quantitative analysis only**. It is not a clinical diagnostic tool. Researchers are responsible for:
+*   Obtaining explicit **subject consent** before data upload.
+*   Adhering to institutional **IRB (Institutional Review Board)** standards.
+*   Ensuring the ethical handling of sensitive behavioral datasets.
+
+## ⚖️ Data Privacy & Anonymization
+
+The platform includes a built-in **PII Anonymization Layer** that scrubs personally identifiable information (emails, phone numbers, names, locations) locally before data is transmitted for analysis. All processing is session-based; no persistent storage of raw datasets is maintained by the application.
 
 ## 🚀 Research Features
 
