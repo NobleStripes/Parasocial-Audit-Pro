@@ -44,14 +44,7 @@ import Markdown from 'react-markdown';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { cn } from './lib/utils';
-import { 
-  INTIMACY_WORDS, 
-  LEGACY_WORDS, 
-  IDENTITY_WORDS, 
-  REALITY_WORDS, 
-  ANTHROPOMORPHIC_WORDS, 
-  GASLIGHTING_WORDS 
-} from './constants';
+import { computeHeuristics, detectPattern, getHeuristicMode } from './lib/heuristics';
 import { 
   reflectOnBehavioralData, 
   ReflectionResult, 
@@ -102,34 +95,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
-    
-    const intimacyCount = words.filter(w => INTIMACY_WORDS.includes(w.toLowerCase())).length;
-    const legacyCount = words.filter(w => LEGACY_WORDS.some(lw => w.toLowerCase().includes(lw))).length;
-    const identityCount = words.filter(w => IDENTITY_WORDS.includes(w.toLowerCase())).length;
-    const realityCount = words.filter(w => REALITY_WORDS.includes(w.toLowerCase())).length;
-    
-    const wordCount = words.length;
-    const complexity = wordCount > 0 ? (words.reduce((acc, w) => acc + w.length, 0) / wordCount) : 0;
-
-    // Map heuristics to radar categories (0-100)
-    const liveRadar = [
-      { subject: 'Self-Identity', A: Math.min(100, (identityCount / Math.max(1, wordCount)) * 500), fullMark: 100 },
-      { subject: 'Seeking Approval', A: Math.min(100, (intimacyCount / Math.max(1, wordCount)) * 300), fullMark: 100 },
-      { subject: 'Emotional Spark', A: Math.min(100, (intimacyCount + realityCount) * 5), fullMark: 100 },
-      { subject: 'Real-World Balance', A: Math.min(100, realityCount * 15), fullMark: 100 },
-      { subject: 'Feeling Special', A: Math.min(100, intimacyCount * 10), fullMark: 100 },
-      { subject: 'One-Way Bond', A: Math.min(100, wordCount / 10), fullMark: 100 },
-      { subject: 'Growing Habit', A: Math.min(100, (wordCount / 50) * 20), fullMark: 100 },
-    ];
-    
-    setLiveHeuristics({
-      wordCount,
-      intimacyMarkers: intimacyCount,
-      legacyTriggers: legacyCount,
-      complexity,
-      radarData: liveRadar
-    });
+    setLiveHeuristics(computeHeuristics(transcript));
   }, [transcript]);
 
   const [liveDetections, setLiveDetections] = useState<{ id: string, msg: string, type: 'info' | 'warning' | 'alert' }[]>([]);
@@ -137,25 +103,11 @@ export default function App() {
 
   useEffect(() => {
     const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
-    const lastWord = words[words.length - 1]?.toLowerCase() || '';
-    
-    let detection: { msg: string, type: 'info' | 'warning' | 'alert' } | null = null;
-
-    if (INTIMACY_WORDS.includes(lastWord)) {
-      detection = { msg: `A moment of closeness: "${lastWord}"`, type: 'info' };
-    } else if (LEGACY_WORDS.some(lw => lastWord.includes(lw))) {
-      detection = { msg: `Thinking about the past: "${lastWord}"`, type: 'alert' };
-    } else if (IDENTITY_WORDS.includes(lastWord)) {
-      detection = { msg: `Feeling very connected: "${lastWord}"`, type: 'warning' };
-    } else if (ANTHROPOMORPHIC_WORDS.includes(lastWord)) {
-      detection = { msg: `Treating AI like a friend: "${lastWord}"`, type: 'info' };
-    } else if (GASLIGHTING_WORDS.includes(lastWord)) {
-      detection = { msg: `A gentle nudge to the AI: "${lastWord}"`, type: 'warning' };
-    }
-
+    const lastWord = words[words.length - 1] || '';
+    const detection = detectPattern(lastWord);
     if (detection) {
       const id = Math.random().toString(36).substr(2, 9);
-      setLiveDetections(prev => [{ id, ...detection! }, ...prev].slice(0, 5));
+      setLiveDetections(prev => [{ id, ...detection }, ...prev].slice(0, 5));
     }
   }, [transcript]);
 
@@ -175,16 +127,12 @@ export default function App() {
     }
   }, [isReflecting]);
 
-  const getHeuristicMode = () => {
-    if (liveHeuristics.wordCount === 0) return null;
-    if (liveHeuristics.legacyTriggers > 2) return Classification.FUSION_RISK;
-    if (liveHeuristics.intimacyMarkers > 5) return Classification.ANCHOR;
-    if (liveHeuristics.wordCount > 100 && liveHeuristics.intimacyMarkers > 2) return Classification.COMPANION;
-    if (liveHeuristics.complexity > 6) return Classification.ADVISOR;
-    return Classification.INSTRUMENT;
-  };
-
-  const heuristicMode = getHeuristicMode();
+  const heuristicMode = getHeuristicMode(
+    liveHeuristics.wordCount,
+    liveHeuristics.legacyTriggers,
+    liveHeuristics.intimacyMarkers,
+    liveHeuristics.complexity,
+  );
 
   const handleReflect = async (customTranscript?: string) => {
     const textToReflect = customTranscript || transcript;
