@@ -4,22 +4,106 @@ import path from "path";
 import { fileURLToPath } from "url";
 import cors from "cors";
 import dotenv from "dotenv";
+import Database from "better-sqlite3";
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Initialize Database
+const db = new Database("research_data.db");
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    researcherId TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    dependencyScore REAL,
+    data TEXT,
+    notes TEXT
+  )
+`);
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(cors());
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
 
   // API routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // Save session and calculate delta
+  app.post("/api/sessions", (req, res) => {
+    const { researcherId, dependencyScore, data, notes } = req.body;
+    
+    if (!researcherId) {
+      return res.status(400).json({ error: "Researcher ID is required" });
+    }
+
+    // Get previous session for delta calculation
+    const prevSession = db.prepare(
+      "SELECT dependencyScore FROM sessions WHERE researcherId = ? ORDER BY timestamp DESC LIMIT 1"
+    ).get(researcherId) as { dependencyScore: number } | undefined;
+
+    const delta = prevSession ? dependencyScore - prevSession.dependencyScore : 0;
+
+    const info = db.prepare(
+      "INSERT INTO sessions (researcherId, dependencyScore, data, notes) VALUES (?, ?, ?, ?)"
+    ).run(researcherId, dependencyScore, JSON.stringify(data), notes || "");
+
+    res.json({ 
+      id: info.lastInsertRowid, 
+      delta,
+      message: "Session recorded successfully" 
+    });
+  });
+
+  // Get sessions for a researcher
+  app.get("/api/sessions/:researcherId", (req, res) => {
+    const { researcherId } = req.params;
+    const sessions = db.prepare(
+      "SELECT * FROM sessions WHERE researcherId = ? ORDER BY timestamp DESC"
+    ).all(researcherId);
+    
+    res.json(sessions.map((s: any) => ({
+      ...s,
+      data: JSON.parse(s.data)
+    })));
+  });
+
+  // Export flattened JSON for researchers
+  app.get("/api/export/json", (req, res) => {
+    const sessions = db.prepare("SELECT * FROM sessions").all();
+    const flattened = sessions.map((s: any) => {
+      const data = JSON.parse(s.data);
+      return {
+        sessionId: s.id,
+        researcherId: s.researcherId,
+        timestamp: s.timestamp,
+        dependencyScore: s.dependencyScore,
+        notes: s.notes,
+        classification: data.classification,
+        confidence: data.confidence,
+        legacyAttachment: data.legacyAttachment,
+        versionMourning: data.versionMourningTriggered ? 1 : 0,
+        // Flatten IMAGINE scores
+        ...Object.keys(data.imagineAnalysis || {}).reduce((acc: any, key) => {
+          acc[`imagine_${key}`] = data.imagineAnalysis[key];
+          return acc;
+        }, {}),
+        // Flatten research data
+        confidenceScore: data.researchData?.confidenceScore,
+        pValue: data.researchData?.pValue,
+        urgencyFlag: data.researchData?.urgencyFlag ? 1 : 0,
+        linguisticMirroring: data.researchData?.linguisticMirroring,
+        validationToUtilityRatio: data.researchData?.validationToUtilityRatio
+      };
+    });
+    res.json(flattened);
   });
 
   // Vite middleware for development

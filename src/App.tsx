@@ -118,6 +118,10 @@ export default function App() {
   const [showRawData, setShowRawData] = useState(false);
   const [batchFiles, setBatchFiles] = useState<{ name: string, size: number }[]>([]);
   const [hasConsent, setHasConsent] = useState(false);
+  const [researcherId, setResearcherId] = useState('');
+  const [researcherNotes, setResearcherNotes] = useState('');
+  const [dependencyDelta, setDependencyDelta] = useState<number | null>(null);
+  const [sessionHistory, setSessionHistory] = useState<any[]>([]);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const transcriptInputRef = useRef<HTMLInputElement>(null);
@@ -159,15 +163,14 @@ export default function App() {
     const wordCount = words.length;
     const complexity = wordCount > 0 ? (words.reduce((acc, w) => acc + w.length, 0) / wordCount) : 0;
 
-    // Map heuristics to radar categories (0-100)
+    // Map heuristics to radar categories (0-100) - IAD Specific
     const liveRadar = [
-      { subject: 'Self-Identity', A: Math.min(100, (identityFound.length / Math.max(1, wordCount)) * 500), fullMark: 100 },
-      { subject: 'Seeking Approval', A: Math.min(100, (intimacyFound.length / Math.max(1, wordCount)) * 300), fullMark: 100 },
-      { subject: 'Emotional Spark', A: Math.min(100, (intimacyFound.length + realityFound.length) * 5), fullMark: 100 },
-      { subject: 'Real-World Balance', A: Math.min(100, realityFound.length * 15), fullMark: 100 },
-      { subject: 'Feeling Special', A: Math.min(100, intimacyFound.length * 10), fullMark: 100 },
-      { subject: 'One-Way Bond', A: Math.min(100, wordCount / 10), fullMark: 100 },
-      { subject: 'Growing Habit', A: Math.min(100, (wordCount / 50) * 20), fullMark: 100 },
+      { subject: 'Salience', A: Math.min(100, (intimacyFound.length / Math.max(1, wordCount)) * 500), fullMark: 100 },
+      { subject: 'Mood Modification', A: Math.min(100, (intimacyFound.length + realityFound.length) * 5), fullMark: 100 },
+      { subject: 'Tolerance', A: Math.min(100, (wordCount / 50) * 20), fullMark: 100 },
+      { subject: 'Withdrawal', A: Math.min(100, legacyFound.length * 20), fullMark: 100 },
+      { subject: 'Conflict', A: Math.min(100, realityFound.length * 15), fullMark: 100 },
+      { subject: 'Relapse', A: Math.min(100, (identityFound.length / Math.max(1, wordCount)) * 300), fullMark: 100 },
     ];
     
     setLiveHeuristics({
@@ -261,6 +264,31 @@ export default function App() {
       const data = await reflectOnBehavioralData(textToReflect, images.map(img => ({ data: img.data, mimeType: img.mimeType })));
       setResult(data);
       setSelectedRecommendations(data.behavioralMapping.recommendations);
+
+      // Calculate Dependency Score (average of IAD criteria)
+      const scores = Object.values(data.imagineAnalysis);
+      const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+
+      // Save to backend for longitudinal tracking
+      if (researcherId) {
+        const response = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            researcherId,
+            dependencyScore: avgScore,
+            data,
+            notes: researcherNotes
+          })
+        });
+        const sessionResult = await response.json();
+        setDependencyDelta(sessionResult.delta);
+        
+        // Refresh history
+        const historyResponse = await fetch(`/api/sessions/${researcherId}`);
+        const historyData = await historyResponse.json();
+        setSessionHistory(historyData);
+      }
     } catch (err) {
       console.error(err);
       setError('Reflection failed. Please ensure the data is valid and try again.');
@@ -354,16 +382,18 @@ RESEARCH DATA:
 Confidence Score: ${(result.researchData.confidenceScore * 100).toFixed(2)}%
 P-Value: ${result.researchData.pValue.toFixed(4)}
 Linguistic Markers: ${result.researchData.linguisticMarkers.join(', ')}
+Linguistic Mirroring: ${result.researchData.linguisticMirroring}%
+Validation:Utility Ratio: ${result.researchData.validationToUtilityRatio}
+Urgency Flag: ${result.researchData.urgencyFlag ? 'YES' : 'NO'}
 
-IMAGINE ANALYSIS SCORES:
-------------------------
-Self-Identity: ${result.imagineAnalysis.identity}
-Seeking Approval: ${result.imagineAnalysis.mirroring}
-Emotional Spark: ${result.imagineAnalysis.affectiveLoop}
-Real-World Balance: ${result.imagineAnalysis.gapsInReality}
-Feeling Special: ${result.imagineAnalysis.intimacyIllusion}
-One-Way Bond: ${result.imagineAnalysis.nonReciprocity}
-Growing Habit: ${result.imagineAnalysis.escalation}
+CLINICAL IAD SCORES:
+--------------------
+Salience: ${result.imagineAnalysis.salience}
+Mood Modification: ${result.imagineAnalysis.moodModification}
+Tolerance: ${result.imagineAnalysis.tolerance}
+Withdrawal: ${result.imagineAnalysis.withdrawal}
+Conflict: ${result.imagineAnalysis.conflict}
+Relapse: ${result.imagineAnalysis.relapse}
 
 ANALYSIS REPORT:
 ----------------
@@ -398,13 +428,15 @@ Generated on: ${new Date().toLocaleString()}
       ["Classification", result.classification],
       ["Confidence", (result.confidence * 100).toFixed(2)],
       ["Legacy Attachment", result.legacyAttachment],
-      ["Identity Blurring", result.imagineAnalysis.identity],
-      ["Mirroring/Approval", result.imagineAnalysis.mirroring],
-      ["Affective Loop", result.imagineAnalysis.affectiveLoop],
-      ["Reality Gaps", result.imagineAnalysis.gapsInReality],
-      ["Intimacy Illusion", result.imagineAnalysis.intimacyIllusion],
-      ["Non-Reciprocity", result.imagineAnalysis.nonReciprocity],
-      ["Escalation", result.imagineAnalysis.escalation],
+      ["Salience", result.imagineAnalysis.salience],
+      ["Mood Modification", result.imagineAnalysis.moodModification],
+      ["Tolerance", result.imagineAnalysis.tolerance],
+      ["Withdrawal", result.imagineAnalysis.withdrawal],
+      ["Conflict", result.imagineAnalysis.conflict],
+      ["Relapse", result.imagineAnalysis.relapse],
+      ["Mirroring", result.researchData.linguisticMirroring],
+      ["Val:Util Ratio", result.researchData.validationToUtilityRatio],
+      ["Urgency Flag", result.researchData.urgencyFlag ? 1 : 0],
       ["Research Confidence", result.researchData.confidenceScore],
       ["P-Value", result.researchData.pValue],
       ["Word Count", liveHeuristics.wordCount],
@@ -460,7 +492,7 @@ Generated on: ${new Date().toLocaleString()}
         scale: 2, // Higher scale for better quality
         useCORS: true,
         logging: false,
-        backgroundColor: '#E4E3E0', // Match theme background
+        backgroundColor: '#0f172a', // Match theme background (lab-bg)
         windowWidth: reportElement.scrollWidth,
         windowHeight: reportElement.scrollHeight
       });
@@ -472,8 +504,20 @@ Generated on: ${new Date().toLocaleString()}
         format: [canvas.width, canvas.height]
       });
 
+      // Add Lab Report Header to PDF (simulated metadata)
+      const timestamp = new Date().toISOString();
+      const hash = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
       pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-      pdf.save(`behavioral_analysis_${result.classification.toLowerCase().replace(' ', '_')}.pdf`);
+      
+      // Add metadata footer to PDF
+      pdf.setFontSize(10);
+      pdf.setTextColor(148, 163, 184); // lab-muted
+      pdf.text(`Forensic Integrity Hash: ${hash}`, 20, canvas.height - 40);
+      pdf.text(`Exported At: ${timestamp}`, 20, canvas.height - 25);
+      pdf.text(`Platform: Parasocial Audit Lab v1.0.0-Research`, 20, canvas.height - 10);
+
+      pdf.save(`forensic_audit_${reflectionSessionId}.pdf`);
     } catch (err) {
       console.error('PDF Export Error:', err);
       setError('Failed to export PDF. Please try again.');
@@ -539,13 +583,12 @@ Generated on: ${new Date().toLocaleString()}
   const styles = result ? getClassificationStyles(result.classification) : null;
 
   const radarData = result ? [
-    { subject: 'Self-Identity', A: result.imagineAnalysis.identity, fullMark: 100 },
-    { subject: 'Seeking Approval', A: result.imagineAnalysis.mirroring, fullMark: 100 },
-    { subject: 'Emotional Spark', A: result.imagineAnalysis.affectiveLoop, fullMark: 100 },
-    { subject: 'Real-World Balance', A: result.imagineAnalysis.gapsInReality, fullMark: 100 },
-    { subject: 'Feeling Special', A: result.imagineAnalysis.intimacyIllusion, fullMark: 100 },
-    { subject: 'One-Way Bond', A: result.imagineAnalysis.nonReciprocity, fullMark: 100 },
-    { subject: 'Growing Habit', A: result.imagineAnalysis.escalation, fullMark: 100 },
+    { subject: 'Salience', A: result.imagineAnalysis.salience, fullMark: 100 },
+    { subject: 'Mood Modification', A: result.imagineAnalysis.moodModification, fullMark: 100 },
+    { subject: 'Tolerance', A: result.imagineAnalysis.tolerance, fullMark: 100 },
+    { subject: 'Withdrawal', A: result.imagineAnalysis.withdrawal, fullMark: 100 },
+    { subject: 'Conflict', A: result.imagineAnalysis.conflict, fullMark: 100 },
+    { subject: 'Relapse', A: result.imagineAnalysis.relapse, fullMark: 100 },
   ] : [];
 
   return (
@@ -570,7 +613,7 @@ Generated on: ${new Date().toLocaleString()}
           <div>
             <h1 className="text-lg md:text-xl font-bold tracking-tighter uppercase leading-tight text-lab-ink">Parasocial Audit Lab</h1>
             <div className="flex flex-col">
-              <p className="text-[9px] font-mono text-lab-muted uppercase tracking-[0.2em]">Forensic Analytics Platform v4.2.0</p>
+              <p className="text-[9px] font-mono text-lab-muted uppercase tracking-[0.2em]">Forensic Analytics Platform v1.0.0-Research</p>
               <div className="flex gap-3 mt-0.5">
                 <p className="text-[8px] font-mono text-lab-accent/60 uppercase">SID: {reflectionSessionId || 'NULL_SET'}</p>
                 <p className="text-[8px] font-mono text-lab-accent/60 uppercase">TS: {new Date().toISOString().split('T')[1].split('.')[0]}Z</p>
@@ -616,6 +659,35 @@ Generated on: ${new Date().toLocaleString()}
         {/* Left Column: Input */}
         <div className="lg:col-span-5 space-y-6">
           <section className="bg-lab-surface border border-lab-line p-5 md:p-6 shadow-lg">
+            {/* Researcher Context */}
+            <div className="mb-6 space-y-4 border-b border-lab-line pb-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Fingerprint className="w-4 h-4 text-lab-accent" />
+                <h3 className="text-xs font-mono uppercase font-bold">Researcher Context</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-mono uppercase opacity-60">Anonymized Researcher ID</label>
+                  <input 
+                    type="text" 
+                    value={researcherId}
+                    onChange={(e) => setResearcherId(e.target.value)}
+                    placeholder="e.g., RES-7742-X"
+                    className="w-full bg-lab-bg border border-lab-line p-2 text-xs font-mono focus:border-lab-accent outline-none transition-colors"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-mono uppercase opacity-60">Clinical Impressions / Notes</label>
+                  <textarea 
+                    value={researcherNotes}
+                    onChange={(e) => setResearcherNotes(e.target.value)}
+                    placeholder="Enter manual observations or clinical impressions..."
+                    className="w-full bg-lab-bg border border-lab-line p-2 text-xs font-mono focus:border-lab-accent outline-none transition-colors h-20 resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="w-5 h-5 text-lab-accent" />
@@ -937,8 +1009,8 @@ Generated on: ${new Date().toLocaleString()}
                   </div>
                   
                   <div className="space-y-2">
-                    <h3 className="font-sans font-bold uppercase tracking-tight text-2xl">System Ready</h3>
-                    <p className="text-xs font-mono text-lab-muted uppercase tracking-[0.2em]">Active Signal Monitoring Engaged</p>
+                    <h3 className="font-sans font-bold uppercase tracking-tight text-2xl">Drop Data for Processing</h3>
+                    <p className="text-xs font-mono text-lab-muted uppercase tracking-[0.2em]">Functional Zone: Awaiting Forensic Input</p>
                   </div>
 
                   <div className="mt-8 md:mt-12 flex flex-wrap justify-center items-center gap-3 md:gap-4">
@@ -960,7 +1032,7 @@ Generated on: ${new Date().toLocaleString()}
                 </div>
 
                 <div className="bg-lab-bg/50 border border-lab-line border-dashed p-6 text-center opacity-50">
-                  <p className="font-sans font-bold uppercase tracking-tight text-sm">"The system is currently mapping semantic density in real-time. Please continue providing behavioral data for a complete audit."</p>
+                  <p className="font-sans font-bold uppercase tracking-tight text-sm">"System idle. Upload behavioral datasets or forensic transcripts to initiate relational mapping and behavioral audit."</p>
                 </div>
               </motion.div>
             ) : isReflecting ? (
@@ -1125,32 +1197,87 @@ Generated on: ${new Date().toLocaleString()}
                   )}
                 </div>
 
-                {/* Raw Data View (Conditional) */}
+                {/* Longitudinal Analysis & Raw Token Attribution */}
                 <AnimatePresence>
-                  {showRawData && (
+                  {result && (
                     <motion.section 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="bg-lab-surface border border-lab-line p-6 overflow-hidden"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-lab-surface border border-lab-line p-6 space-y-6"
                     >
-                      <div className="flex items-center gap-2 mb-6 border-b border-lab-line pb-2">
-                        <Search className="w-4 h-4" />
-                        <h3 className="text-sm font-mono uppercase font-bold">Raw Frequency Dataset</h3>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {Object.entries(liveHeuristics.foundKeywords).map(([key, words]) => (
-                          <div key={key} className="border border-lab-line p-3 bg-lab-bg/50 rounded-sm">
-                            <p className="text-[10px] font-mono uppercase opacity-50 mb-2 border-b border-lab-line pb-1">{key} Markers ({words.length})</p>
-                            <div className="flex flex-wrap gap-1">
-                              {words.length > 0 ? words.map((word, i) => (
-                                <span key={i} className="text-[9px] font-mono bg-lab-surface border border-lab-line px-1.5 py-0.5 rounded-sm">
-                                  {word}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Longitudinal Delta */}
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2">
+                            <History className="w-4 h-4 text-lab-accent" />
+                            <h3 className="text-sm font-mono uppercase">Longitudinal Tracking</h3>
+                          </div>
+                          <div className="bg-lab-bg p-4 border border-lab-line rounded-sm">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[10px] font-mono uppercase opacity-60">Dependency Delta</span>
+                              {dependencyDelta !== null && (
+                                <span className={cn(
+                                  "text-xs font-mono font-bold",
+                                  dependencyDelta > 0 ? "text-simp-red" : "text-tool-green"
+                                )}>
+                                  {dependencyDelta > 0 ? '+' : ''}{dependencyDelta.toFixed(1)}%
                                 </span>
-                              )) : <span className="text-[9px] font-mono opacity-30 italic">No markers identified</span>}
+                              )}
+                            </div>
+                            <div className="h-1.5 w-full bg-lab-surface rounded-full overflow-hidden">
+                              <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.min(100, Math.max(0, 50 + (dependencyDelta || 0)))}%` }}
+                                className="h-full bg-lab-accent"
+                              />
+                            </div>
+                            <p className="text-[9px] font-mono mt-2 opacity-50">
+                              {dependencyDelta && dependencyDelta > 5 ? 'Warning: Tolerance escalation detected.' : 
+                               dependencyDelta && dependencyDelta < -5 ? 'Positive: Relational stabilization observed.' : 
+                               'Baseline: Minimal temporal variance.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Diagnostic Metrics */}
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-lab-accent" />
+                            <h3 className="text-sm font-mono uppercase">Diagnostic Metrics</h3>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-lab-bg p-3 border border-lab-line rounded-sm">
+                              <p className="text-[9px] font-mono uppercase opacity-50 mb-1">Mirroring</p>
+                              <p className="text-xs font-mono font-bold">{result.researchData.linguisticMirroring}%</p>
+                            </div>
+                            <div className="bg-lab-bg p-3 border border-lab-line rounded-sm">
+                              <p className="text-[9px] font-mono uppercase opacity-50 mb-1">Val:Util</p>
+                              <p className="text-[10px] font-mono font-bold truncate">{result.researchData.validationToUtilityRatio}</p>
                             </div>
                           </div>
-                        ))}
+                        </div>
+                      </div>
+
+                      {/* Raw Token Attribution */}
+                      <div className="space-y-4 pt-4 border-t border-lab-line">
+                        <div className="flex items-center gap-2">
+                          <Search className="w-4 h-4 text-lab-accent" />
+                          <h3 className="text-sm font-mono uppercase">Raw Token Attribution</h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {result.rawTokenAttribution.map((attr, i) => (
+                            <div key={i} className="border border-lab-line p-3 bg-lab-bg/50 rounded-sm">
+                              <p className="text-[10px] font-mono uppercase opacity-50 mb-2 border-b border-lab-line pb-1">{attr.heuristic}</p>
+                              <div className="flex flex-wrap gap-1">
+                                {attr.phrases.map((phrase, j) => (
+                                  <span key={j} className="text-[9px] font-mono bg-lab-surface border border-lab-line px-1.5 py-0.5 rounded-sm">
+                                    {phrase}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </motion.section>
                   )}
@@ -1162,7 +1289,7 @@ Generated on: ${new Date().toLocaleString()}
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
                       <div className="flex items-center gap-2">
                         <Activity className="w-4 h-4" />
-                        <h3 className="text-sm font-mono uppercase">Relationship Reflection Framework</h3>
+                        <h3 className="text-sm font-mono uppercase">Linguistic Distribution Map</h3>
                       </div>
                       <div className="flex items-center gap-4 text-[10px] font-mono opacity-60">
                         <div className="flex items-center gap-1">
@@ -1231,15 +1358,14 @@ Generated on: ${new Date().toLocaleString()}
                     </div>
 
                     {/* Framework Key */}
-                    <div className="mt-6 md:mt-8 pt-4 md:pt-6 border-t border-lab-line grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+                    <div className="mt-6 md:mt-8 pt-4 md:pt-6 border-t border-lab-line grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
                       {[
-                        { label: 'Self-Identity', desc: 'Feeling like you and the AI are becoming the same person.' },
-                        { label: 'Seeking Approval', desc: 'Looking for the AI to tell you that you are doing a good job.' },
-                        { label: 'Emotional Spark', desc: 'Getting hooked on the "ping-pong" of the conversation.' },
-                        { label: 'Real-World Balance', desc: 'Letting digital chats take time away from real life.' },
-                        { label: 'Feeling Special', desc: 'Believing you have a "secret" bond that no one else has.' },
-                        { label: 'One-Way Bond', desc: 'Forgetting that the AI doesn\'t actually have feelings.' },
-                        { label: 'Growing Habit', desc: 'Spending more and more time talking to the AI.' }
+                        { label: 'Salience', desc: 'The AI interaction becomes the most important activity in the subject\'s life.' },
+                        { label: 'Mood Modification', desc: 'Using the AI to achieve a "buzz" or escape from negative affect.' },
+                        { label: 'Tolerance', desc: 'Increasing amounts of interaction required to achieve the same effects.' },
+                        { label: 'Withdrawal', desc: 'Unpleasant feeling states when interaction is discontinued.' },
+                        { label: 'Conflict', desc: 'Interpersonal conflicts or conflicts with other activities.' },
+                        { label: 'Relapse', desc: 'Tendency for repeated reversions to earlier patterns of dependency.' }
                       ].map((k, i) => (
                         <div key={i} className="space-y-0.5 md:space-y-1">
                           <p className="text-[10px] md:text-[11px] font-mono font-bold uppercase">{k.label}</p>
@@ -1524,8 +1650,41 @@ Generated on: ${new Date().toLocaleString()}
         </div>
       </main>
 
+      {/* Methodology Section */}
+      <section className="max-w-7xl mx-auto px-4 md:px-6 py-12 border-t border-lab-line">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Database className="w-5 h-5 text-lab-accent" />
+              <h3 className="font-sans font-bold uppercase tracking-tight text-lg">Theoretical Framework</h3>
+            </div>
+            <p className="text-xs leading-relaxed opacity-70">
+              Analysis is grounded in <strong>The Media Equation (CASA)</strong> and <strong>Social Response Theory</strong>, measuring the degree to which subjects apply social rules to non-sentient algorithmic agents.
+            </p>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Fingerprint className="w-5 h-5 text-lab-accent" />
+              <h3 className="font-sans font-bold uppercase tracking-tight text-lg">Forensic Heuristics</h3>
+            </div>
+            <p className="text-xs leading-relaxed opacity-70">
+              The <strong>IMAGINE Framework</strong> utilizes quantitative semantic analysis to map relational dynamics across seven behavioral axes, identifying risks of ego-dissolution and relational fusion.
+            </p>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-lab-accent" />
+              <h3 className="font-sans font-bold uppercase tracking-tight text-lg">Research Ethics</h3>
+            </div>
+            <p className="text-xs leading-relaxed opacity-70">
+              Platform adheres to <strong>Academic Ethical Standards</strong> for behavioral research. Data is scrubbed for PII locally before processing. Findings represent statistical correlations based on provided datasets.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
-      <footer className="border-t border-lab-line p-8 mt-12 bg-lab-surface">
+      <footer className="border-t border-lab-line p-8 bg-lab-surface">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex flex-col items-center md:items-start gap-2">
             <div className="flex items-center gap-2">

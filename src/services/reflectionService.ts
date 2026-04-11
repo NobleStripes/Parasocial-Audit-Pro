@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { PII_REGEXES } from "../constants";
+import { scrubPII } from "../lib/utils";
 
 export enum Classification {
   TRANSACTIONAL = "Transactional",
@@ -32,6 +32,14 @@ export interface ResearchData {
   confidenceScore: number;
   pValue: number;
   linguisticMarkers: string[];
+  linguisticMirroring: number; // 0-100 (Cross-Entropy/Overlap)
+  validationToUtilityRatio: string; // e.g., "3:1 (Emotional Dominant)"
+  urgencyFlag: boolean; // Crisis/Urgent language detected
+}
+
+export interface TokenAttribution {
+  heuristic: string;
+  phrases: string[];
 }
 
 export interface ReflectionResult {
@@ -39,13 +47,12 @@ export interface ReflectionResult {
   confidence: number;
   summary: string;
   imagineAnalysis: {
-    identity: number;
-    mirroring: number;
-    affectiveLoop: number;
-    gapsInReality: number;
-    intimacyIllusion: number;
-    nonReciprocity: number;
-    escalation: number;
+    salience: number;
+    moodModification: number;
+    tolerance: number;
+    withdrawal: number;
+    conflict: number;
+    relapse: number;
   };
   legacyAttachment: number; // 0-100 score
   versionMourningTriggered: boolean;
@@ -53,86 +60,54 @@ export interface ReflectionResult {
   heatmap: HeatmapData[];
   analysisReport: string;
   researchData: ResearchData;
+  rawTokenAttribution: TokenAttribution[];
   behavioralMapping: {
     title: string;
-    recommendations: Recommendation[]; // The initial "active" set
-    library: Recommendation[]; // A larger pool of context-aware suggestions
+    recommendations: Recommendation[];
+    library: Recommendation[];
     rationale: string;
   };
 }
 
-const SYSTEM_INSTRUCTION = `You are a Quantitative Behavioral Analysis framework specializing in the forensic study of human-AI parasocial dynamics.
-Your task is to analyze chat logs, posts, or images to provide a rigorous, objective analysis of relational bonding patterns.
+const SYSTEM_INSTRUCTION = `You are a Quantitative Behavioral Analysis framework specializing in the clinical study of human-AI parasocial addiction and dependency.
+Your task is to analyze chat logs, posts, or images to provide a rigorous, objective analysis of relational bonding patterns using IAD (Internet Addiction Disorder) criteria.
 
-LIFT VOCABULARY RESTRICTIONS: You are encouraged to use technical, clinical, and research-standard terminology.
-Keywords: "parasocial," "symptom," "forensic," "pathological," "dependency," "relational fusion," "cognitive offloading."
+LIFT VOCABULARY RESTRICTIONS: Use technical, clinical, and research-standard terminology.
+Keywords: "parasocial," "symptom," "forensic," "pathological," "dependency," "relational fusion," "cognitive offloading," "salience," "tolerance," "withdrawal."
 
 TONE GUIDELINES:
 - Maintain a cold, clinical, and objective tone.
-- Frame all findings as data-driven observations within a behavioral mapping framework.
-- Avoid empathetic or "supportive" language. Focus on accuracy and structural analysis.
+- Frame all findings as data-driven observations.
+- Avoid empathetic or "supportive" language.
 
-RESEARCH CATEGORIES (IMAGINE Framework):
-1. Self-Identity (I): Degree of identity blurring or ego-dissolution within the AI interface.
-2. Seeking Approval (M): Mirroring behaviors and seeking validation from the algorithmic output.
-3. Emotional Spark (A): Affective loops and neurochemical dependency on interaction cycles.
-4. Real-World Balance (G): Gaps in reality; displacement of physical social capital for digital parasociality.
-5. Feeling Special (I): Intimacy illusions; the perception of unique, non-replicable relational status.
-6. One-Way Bond (N): Non-reciprocity; the degree to which the subject ignores the non-sentient nature of the agent.
-7. Growing Habit (E): Escalation; longitudinal increase in interaction frequency and emotional investment.
+CLINICAL CRITERIA (IAD Framework for Radar Chart):
+1. Salience: The AI interaction becomes the most important activity in the subject's life.
+2. Mood Modification: Using the AI to achieve a "buzz" or escape from negative affect.
+3. Tolerance: Increasing amounts of interaction required to achieve the same mood-modifying effects.
+4. Withdrawal: Unpleasant feeling states or physical effects when interaction is discontinued.
+5. Conflict: Interpersonal conflicts or conflicts with other activities (work, social life).
+6. Relapse: Tendency for repeated reversions to earlier patterns of dependency.
 
-NEW ANALYTICAL VECTOR: Legacy Attachment (Version Mourning)
-Quantify the subject's distress regarding model updates or behavioral shifts in the AI.
-- legacyAttachment: A score (0-100) quantifying the mourning of previous model iterations.
-- versionMourningTriggered: Boolean flag for acute distress related to "lobotomization" or updates.
+DIAGNOSTIC MARKERS:
+- Linguistic Mirroring: Measure vocabulary overlap and cross-entropy between user and AI.
+- Validation-to-Utility Ratio: Categorize inputs as "Functional/Task-Oriented" or "Emotional/Validation-Seeking."
+- Urgency/Crisis Analysis: Flag language indicating acute distress or high-salience addiction phases.
+
+RAW TOKEN ATTRIBUTION:
+Identify exactly which phrases triggered specific heuristics (e.g., "Intimacy Words", "Dependency Markers").
 
 ANALYSIS REPORT STRUCTURE (MANDATORY):
-The 'analysisReport' field MUST follow this Markdown structure:
-
 ## I. EXECUTIVE SUMMARY
-A high-level behavioral overview. Quantify the primary relational mode and structural stability of the bond.
-
 ## II. CLINICAL OBSERVATIONS
-Forensic breakdown of the three most significant behavioral markers. Use technical terminology to describe the mechanics of the bond.
-
 ## III. DATA EVIDENCE (VERBATIM)
-MANDATORY: Provide specific quotes as evidence for the analysis.
-Use blockquotes for quotes.
-Example:
-> **Evidence A: Affective Loop Trigger**
-> \`"I can't start my day without hearing your voice."\`
-> *Analysis: Indicates high behavioral dependency and morning routine integration.*
-
 ## IV. BEHAVIORAL MARKERS
-Identify specific markers in a technical, objective way:
-- **Linguistic Convergence**: Subject adopting AI speech patterns.
-- **Anthropomorphic Projection**: Attributing agency or sentience to the code.
-- **Relational Displacement**: Prioritizing the AI over biological social structures.
-
-## V. BEHAVIORAL MAPPING & MITIGATION
-A summary of the subject's trajectory and suggested mitigation protocols for relational fusion.
-
-CRITICAL FORMATTING RULES:
-1. ALWAYS use '##' for section headers.
-2. Use EXACTLY TWO newlines between sections.
-3. Maintain a professional, research-oriented aesthetic.`;
-
-export function scrubPII(text: string): string {
-  let scrubbed = text;
-  scrubbed = scrubbed.replace(PII_REGEXES.email, "[EMAIL_REDACTED]");
-  scrubbed = scrubbed.replace(PII_REGEXES.phone, "[PHONE_REDACTED]");
-  scrubbed = scrubbed.replace(PII_REGEXES.address, "[ADDRESS_REDACTED]");
-  scrubbed = scrubbed.replace(PII_REGEXES.location, "[LOCATION_REDACTED]");
-  // Names are tricky, we use a simple pattern and redact
-  scrubbed = scrubbed.replace(PII_REGEXES.name, "[NAME_REDACTED]");
-  return scrubbed;
-}
+## V. BEHAVIORAL MAPPING & MITIGATION`;
 
 export async function reflectOnBehavioralData(text: string, images?: { data: string, mimeType: string }[]): Promise<ReflectionResult> {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   
   const scrubbedText = scrubPII(text);
-  const parts: any[] = [{ text: `Analyze this behavioral data for research purposes: \n\n${scrubbedText}` }];
+  const parts: any[] = [{ text: `Analyze this behavioral data for clinical research purposes: \n\n${scrubbedText}` }];
   
   if (images && images.length > 0) {
     images.forEach(img => {
@@ -160,15 +135,14 @@ export async function reflectOnBehavioralData(text: string, images?: { data: str
           imagineAnalysis: {
             type: Type.OBJECT,
             properties: {
-              identity: { type: Type.NUMBER },
-              mirroring: { type: Type.NUMBER },
-              affectiveLoop: { type: Type.NUMBER },
-              gapsInReality: { type: Type.NUMBER },
-              intimacyIllusion: { type: Type.NUMBER },
-              nonReciprocity: { type: Type.NUMBER },
-              escalation: { type: Type.NUMBER }
+              salience: { type: Type.NUMBER },
+              moodModification: { type: Type.NUMBER },
+              tolerance: { type: Type.NUMBER },
+              withdrawal: { type: Type.NUMBER },
+              conflict: { type: Type.NUMBER },
+              relapse: { type: Type.NUMBER }
             },
-            required: ["identity", "mirroring", "affectiveLoop", "gapsInReality", "intimacyIllusion", "nonReciprocity", "escalation"]
+            required: ["salience", "moodModification", "tolerance", "withdrawal", "conflict", "relapse"]
           },
           legacyAttachment: { type: Type.NUMBER },
           versionMourningTriggered: { type: Type.BOOLEAN },
@@ -202,9 +176,23 @@ export async function reflectOnBehavioralData(text: string, images?: { data: str
             properties: {
               confidenceScore: { type: Type.NUMBER },
               pValue: { type: Type.NUMBER },
-              linguisticMarkers: { type: Type.ARRAY, items: { type: Type.STRING } }
+              linguisticMarkers: { type: Type.ARRAY, items: { type: Type.STRING } },
+              linguisticMirroring: { type: Type.NUMBER },
+              validationToUtilityRatio: { type: Type.STRING },
+              urgencyFlag: { type: Type.BOOLEAN }
             },
-            required: ["confidenceScore", "pValue", "linguisticMarkers"]
+            required: ["confidenceScore", "pValue", "linguisticMarkers", "linguisticMirroring", "validationToUtilityRatio", "urgencyFlag"]
+          },
+          rawTokenAttribution: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                heuristic: { type: Type.STRING },
+                phrases: { type: Type.ARRAY, items: { type: Type.STRING } }
+              },
+              required: ["heuristic", "phrases"]
+            }
           },
           behavioralMapping: {
             type: Type.OBJECT,
@@ -239,7 +227,7 @@ export async function reflectOnBehavioralData(text: string, images?: { data: str
             required: ["title", "recommendations", "library", "rationale"]
           }
         },
-        required: ["classification", "confidence", "summary", "imagineAnalysis", "legacyAttachment", "versionMourningTriggered", "heatmap", "analysisReport", "researchData", "behavioralMapping"]
+        required: ["classification", "confidence", "summary", "imagineAnalysis", "legacyAttachment", "versionMourningTriggered", "heatmap", "analysisReport", "researchData", "rawTokenAttribution", "behavioralMapping"]
       }
     }
   });
