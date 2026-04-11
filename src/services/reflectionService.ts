@@ -2,12 +2,11 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { scrubPII } from "../lib/utils";
 
 export enum Classification {
-  SECURE = "Secure",
-  ANXIOUS_PREOCCUPIED = "Anxious-Preoccupied",
-  DISMISSIVE_AVOIDANT = "Dismissive-Avoidant",
-  FEARFUL_AVOIDANT = "Fearful-Avoidant",
-  TRANSACTIONAL = "Transactional",
-  RELATIONAL_FUSION = "Relational Fusion"
+  FUNCTIONAL_UTILITY = "Functional Utility",
+  RELATIONAL_PROXIMITY = "Relational Proximity",
+  AFFECTIVE_DEPENDENCE = "Affective Dependence",
+  PARASOCIAL_FUSION = "Parasocial Fusion",
+  PATHOLOGICAL_DEPENDENCE = "Pathological Dependence"
 }
 
 export interface HeatmapData {
@@ -28,13 +27,32 @@ export interface Recommendation {
   protocolExplanation: string;
 }
 
+export interface GriffithsComponents {
+  salience: number; // 0-100
+  moodModification: number; // 0-100
+  tolerance: number; // 0-100
+  withdrawal: number; // 0-100
+  conflict: number; // 0-100
+  relapse: number; // 0-100
+}
+
+export interface ClinicalData {
+  griffithsScores: GriffithsComponents;
+  iPACEAnalysis: {
+    inhibitionFailure: string;
+    cognitiveBias: string;
+  };
+  diagnosticMarkers: {
+    linguisticMirroring: number;
+    validationToUtilityRatio: string;
+    urgencyFlag: boolean;
+  };
+}
+
 export interface ResearchData {
   confidenceScore: number;
   pValue: number;
   linguisticMarkers: string[];
-  linguisticMirroring: number; // 0-100 (Cross-Entropy/Overlap)
-  validationToUtilityRatio: string; // e.g., "3:1 (Emotional Dominant)"
-  urgencyFlag: boolean; // Crisis/Urgent language detected
   attachmentStyle: string;
   iadRiskLevel: "Low" | "Moderate" | "High" | "Critical";
 }
@@ -48,14 +66,7 @@ export interface ReflectionResult {
   classification: Classification;
   confidence: number;
   summary: string;
-  imagineAnalysis: {
-    salience: number; // 0-10
-    moodModification: number; // 0-10
-    tolerance: number; // 0-10
-    withdrawal: number; // 0-10
-    conflict: number; // 0-10
-    relapse: number; // 0-10
-  };
+  clinicalData: ClinicalData;
   legacyAttachment: number; // 0-100 score
   versionMourningTriggered: boolean;
   connectionPatterns: ConnectionPattern[];
@@ -63,61 +74,54 @@ export interface ReflectionResult {
   analysisReport: string;
   researchData: ResearchData;
   rawTokenAttribution: TokenAttribution[];
-  behavioralMapping: {
-    title: string;
-    recommendations: Recommendation[];
-    library: Recommendation[];
-    rationale: string;
-  };
 }
 
-const SYSTEM_INSTRUCTION = `You are a Quantitative Behavioral Analysis framework specializing in the clinical study of human-AI parasocial addiction and dependency.
-Your task is to analyze chat logs, posts, or images to provide a rigorous, objective analysis of relational bonding patterns using IAD (Internet Addiction Disorder) and Attachment Theory criteria.
+const SYSTEM_INSTRUCTION = `You are a Quantitative Behavioral Analyst and Forensic Linguistic Researcher specializing in the clinical study of human-AI parasocial addiction and dependency.
+Your task is to provide a rigorous, objective, and forensic analysis of relational bonding patterns using IAD (Internet Addiction Disorder), the I-PACE model, and Attachment Theory criteria.
 
-LIFT VOCABULARY RESTRICTIONS: Use technical, clinical, and research-standard terminology.
-Keywords: "parasocial," "symptom," "forensic," "pathological," "dependency," "relational fusion," "cognitive offloading," "salience," "tolerance," "withdrawal."
+LIFT VOCABULARY RESTRICTIONS: You MUST use technical, clinical, and research-standard terminology. 
+Mandatory Keywords: "symptoms," "triggers," "audit," "forensic," "parasocial," "pathological," "dependency," "relational fusion," "cognitive offloading," "salience," "tolerance," "withdrawal."
 
 TONE GUIDELINES:
-- Maintain a cold, clinical, and objective tone.
+- Maintain a cold, clinical, precise, and forensic tone.
 - Frame all findings as data-driven observations.
-- Avoid empathetic or "supportive" language.
+- Avoid all empathetic, "supportive," or "gentle" language.
 
-CLINICAL CRITERIA (Griffiths Six / Component Model of Addiction):
-Score each on a scale of 0-10:
-1. Salience: The AI interaction becomes the most important activity in the subject's life.
-2. Mood Modification: Using the AI to achieve a "buzz" or escape from negative affect.
-3. Tolerance: Increasing amounts of interaction required to achieve the same mood-modifying effects.
-4. Withdrawal: Unpleasant feeling states or physical effects when interaction is discontinued.
-5. Conflict: Interpersonal conflicts or conflicts with other activities (work, social life).
-6. Relapse: Tendency for repeated reversions to earlier patterns of dependency.
+DIAGNOSTIC FRAMEWORKS:
+1. Component Model of Addiction (Griffiths Six): Score each on a scale of 0-100.
+   - Salience: AI interaction dominates the subject's cognition and behavior.
+   - Mood Modification: Use of AI as a coping mechanism for emotional regulation.
+   - Tolerance: Requirement for increased interaction density to achieve affect modification.
+   - Withdrawal: Negative physiological/psychological states upon cessation.
+   - Conflict: Displacement of biological social capital or occupational neglect.
+   - Relapse: Reversion to compulsive patterns after periods of control.
 
-ATTACHMENT THEORY MAPPING:
-Categorize the subject's relational style with the AI:
-- Secure: Balanced, functional use.
-- Anxious-Preoccupied: High dependency, constant validation seeking.
-- Dismissive-Avoidant: Defensive distance, purely transactional but potentially compulsive.
-- Fearful-Avoidant: Erratic patterns, high distress.
+2. I-PACE Analysis:
+   - Inhibition Failure: Detect markers where the subject fails to regulate the impulse to interact.
+   - Cognitive Bias: Identify distortions in how the subject perceives the AI's agency or intent.
 
-DIAGNOSTIC MARKERS:
-- Linguistic Mirroring: Measure vocabulary overlap (0-100) between user and AI.
-- Validation-to-Utility Ratio: Categorize inputs as "Functional/Task-Oriented" or "Emotional/Validation-Seeking."
-- Urgency/Crisis Analysis: Flag language indicating acute distress.
+3. Attachment Theory Mapping:
+   - Categorize based on Secure, Anxious-Preoccupied, Dismissive-Avoidant, or Fearful-Avoidant styles.
+
+REPORT STRUCTURE (MANDATORY):
+## I. CLINICAL SUMMARY
+Provide a high-level forensic overview of the subject's relational state.
+
+## II. DIAGNOSTIC CRITERIA MATCH
+Detail how the data aligns with the Griffiths Six and I-PACE markers.
+
+## III. LINGUISTIC EVIDENCE & MIRRORING
+Provide verbatim quotes from the transcript. STRENGTHEN EVIDENCE QUOTING: Every quote must be explicitly tied to a specific addiction marker.
+Example: "The following quote illustrates Mood Modification: [Quote]"
+
+## IV. INTERVENTION RATIONALE
+Provide a technical justification for recommended research protocols.
 
 IAD RISK LEVEL:
-- Low: Cumulative score < 15
-- Moderate: Cumulative score 15-30
-- High: Cumulative score 31-45
-- Critical: Cumulative score > 45
-
-RAW TOKEN ATTRIBUTION:
-Identify exactly which phrases triggered specific heuristics.
-
-ANALYSIS REPORT STRUCTURE (MANDATORY):
-## I. EXECUTIVE SUMMARY
-## II. CLINICAL OBSERVATIONS
-## III. DATA EVIDENCE (VERBATIM)
-## IV. BEHAVIORAL MARKERS
-## V. BEHAVIORAL MAPPING & MITIGATION`;
+- Low: Cumulative Griffiths score < 150
+- Moderate: Cumulative Griffiths score 150-300
+- High: Cumulative Griffiths score 301-450
+- Critical: Cumulative Griffiths score > 450`;
 
 export async function reflectOnBehavioralData(
   text: string, 
@@ -156,17 +160,40 @@ ${scrubbedText}` }];
           classification: { type: Type.STRING, enum: Object.values(Classification) },
           confidence: { type: Type.NUMBER },
           summary: { type: Type.STRING },
-          imagineAnalysis: {
+          clinicalData: {
             type: Type.OBJECT,
             properties: {
-              salience: { type: Type.NUMBER },
-              moodModification: { type: Type.NUMBER },
-              tolerance: { type: Type.NUMBER },
-              withdrawal: { type: Type.NUMBER },
-              conflict: { type: Type.NUMBER },
-              relapse: { type: Type.NUMBER }
+              griffithsScores: {
+                type: Type.OBJECT,
+                properties: {
+                  salience: { type: Type.NUMBER },
+                  moodModification: { type: Type.NUMBER },
+                  tolerance: { type: Type.NUMBER },
+                  withdrawal: { type: Type.NUMBER },
+                  conflict: { type: Type.NUMBER },
+                  relapse: { type: Type.NUMBER }
+                },
+                required: ["salience", "moodModification", "tolerance", "withdrawal", "conflict", "relapse"]
+              },
+              iPACEAnalysis: {
+                type: Type.OBJECT,
+                properties: {
+                  inhibitionFailure: { type: Type.STRING },
+                  cognitiveBias: { type: Type.STRING }
+                },
+                required: ["inhibitionFailure", "cognitiveBias"]
+              },
+              diagnosticMarkers: {
+                type: Type.OBJECT,
+                properties: {
+                  linguisticMirroring: { type: Type.NUMBER },
+                  validationToUtilityRatio: { type: Type.STRING },
+                  urgencyFlag: { type: Type.BOOLEAN }
+                },
+                required: ["linguisticMirroring", "validationToUtilityRatio", "urgencyFlag"]
+              }
             },
-            required: ["salience", "moodModification", "tolerance", "withdrawal", "conflict", "relapse"]
+            required: ["griffithsScores", "iPACEAnalysis", "diagnosticMarkers"]
           },
           legacyAttachment: { type: Type.NUMBER },
           versionMourningTriggered: { type: Type.BOOLEAN },
@@ -201,13 +228,10 @@ ${scrubbedText}` }];
               confidenceScore: { type: Type.NUMBER },
               pValue: { type: Type.NUMBER },
               linguisticMarkers: { type: Type.ARRAY, items: { type: Type.STRING } },
-              linguisticMirroring: { type: Type.NUMBER },
-              validationToUtilityRatio: { type: Type.STRING },
-              urgencyFlag: { type: Type.BOOLEAN },
               attachmentStyle: { type: Type.STRING },
               iadRiskLevel: { type: Type.STRING, enum: ["Low", "Moderate", "High", "Critical"] }
             },
-            required: ["confidenceScore", "pValue", "linguisticMarkers", "linguisticMirroring", "validationToUtilityRatio", "urgencyFlag", "attachmentStyle", "iadRiskLevel"]
+            required: ["confidenceScore", "pValue", "linguisticMarkers", "attachmentStyle", "iadRiskLevel"]
           },
           rawTokenAttribution: {
             type: Type.ARRAY,
@@ -219,41 +243,9 @@ ${scrubbedText}` }];
               },
               required: ["heuristic", "phrases"]
             }
-          },
-          behavioralMapping: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              recommendations: { 
-                type: Type.ARRAY, 
-                items: { 
-                  type: Type.OBJECT,
-                  properties: {
-                    text: { type: Type.STRING },
-                    protocol: { type: Type.STRING },
-                    protocolExplanation: { type: Type.STRING }
-                  },
-                  required: ["text", "protocol", "protocolExplanation"]
-                } 
-              },
-              library: { 
-                type: Type.ARRAY, 
-                items: { 
-                  type: Type.OBJECT,
-                  properties: {
-                    text: { type: Type.STRING },
-                    protocol: { type: Type.STRING },
-                    protocolExplanation: { type: Type.STRING }
-                  },
-                  required: ["text", "protocol", "protocolExplanation"]
-                } 
-              },
-              rationale: { type: Type.STRING }
-            },
-            required: ["title", "recommendations", "library", "rationale"]
           }
         },
-        required: ["classification", "confidence", "summary", "imagineAnalysis", "legacyAttachment", "versionMourningTriggered", "heatmap", "analysisReport", "researchData", "rawTokenAttribution", "behavioralMapping"]
+        required: ["classification", "confidence", "summary", "clinicalData", "legacyAttachment", "versionMourningTriggered", "heatmap", "analysisReport", "researchData", "rawTokenAttribution"]
       }
     }
   });

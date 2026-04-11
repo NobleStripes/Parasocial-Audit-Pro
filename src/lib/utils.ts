@@ -22,3 +22,12 @@ export function scrubPII(text: string): string {
   scrubbed = scrubbed.replace(PII_REGEXES.name, "[NAME_REDACTED]");
   return scrubbed;
 }
+
+export async function generateSessionHash(data: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const dataUint8 = encoder.encode(data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', dataUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}

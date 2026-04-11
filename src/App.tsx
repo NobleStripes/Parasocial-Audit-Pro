@@ -32,7 +32,8 @@ import {
   Code,
   TrendingUp,
   Quote,
-  ShieldCheck
+  ShieldCheck,
+  Eye
 } from 'lucide-react';
 import { 
   Radar, 
@@ -246,11 +247,11 @@ export default function App() {
 
   const getHeuristicMode = () => {
     if (liveHeuristics.wordCount === 0) return null;
-    if (liveHeuristics.legacyTriggers > 2) return Classification.RELATIONAL_FUSION;
-    if (liveHeuristics.intimacyMarkers > 5) return Classification.ANXIOUS_PREOCCUPIED;
-    if (liveHeuristics.wordCount > 100 && liveHeuristics.intimacyMarkers > 2) return Classification.RELATIONAL_FUSION;
-    if (liveHeuristics.complexity > 6) return Classification.DISMISSIVE_AVOIDANT;
-    return Classification.TRANSACTIONAL;
+    if (liveHeuristics.legacyTriggers > 2) return Classification.PARASOCIAL_FUSION;
+    if (liveHeuristics.intimacyMarkers > 5) return Classification.AFFECTIVE_DEPENDENCE;
+    if (liveHeuristics.wordCount > 100 && liveHeuristics.intimacyMarkers > 2) return Classification.PARASOCIAL_FUSION;
+    if (liveHeuristics.complexity > 6) return Classification.RELATIONAL_PROXIMITY;
+    return Classification.FUNCTIONAL_UTILITY;
   };
 
   const heuristicMode = getHeuristicMode();
@@ -292,11 +293,10 @@ export default function App() {
         sensitivity
       );
       setResult(data);
-      setSelectedRecommendations(data.behavioralMapping.recommendations);
 
       // Calculate Dependency Score (average of Griffiths Six)
-      const scores = Object.values(data.imagineAnalysis);
-      const avgScore = (scores.reduce((a, b) => a + b, 0) / scores.length) * 10; // Convert 0-10 to 0-100 for storage consistency
+      const scores = Object.values(data.clinicalData.griffithsScores);
+      const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
 
       // Save to backend for longitudinal tracking
       if (researcherId) {
@@ -438,31 +438,24 @@ RESEARCH DATA:
 Confidence Score: ${(result.researchData.confidenceScore * 100).toFixed(2)}%
 P-Value: ${result.researchData.pValue.toFixed(4)}
 Linguistic Markers: ${result.researchData.linguisticMarkers.join(', ')}
-Linguistic Mirroring: ${result.researchData.linguisticMirroring}%
-Validation:Utility Ratio: ${result.researchData.validationToUtilityRatio}
-Urgency Flag: ${result.researchData.urgencyFlag ? 'YES' : 'NO'}
+Linguistic Mirroring: ${result.clinicalData.diagnosticMarkers.linguisticMirroring}%
+Validation:Utility Ratio: ${result.clinicalData.diagnosticMarkers.validationToUtilityRatio}
+Urgency Flag: ${result.clinicalData.diagnosticMarkers.urgencyFlag ? 'YES' : 'NO'}
 Attachment Style: ${result.researchData.attachmentStyle}
 IAD Risk Level: ${result.researchData.iadRiskLevel}
 
 CLINICAL IAD SCORES:
 --------------------
-Salience: ${result.imagineAnalysis.salience}/10
-Mood Modification: ${result.imagineAnalysis.moodModification}/10
-Tolerance: ${result.imagineAnalysis.tolerance}/10
-Withdrawal: ${result.imagineAnalysis.withdrawal}/10
-Conflict: ${result.imagineAnalysis.conflict}/10
-Relapse: ${result.imagineAnalysis.relapse}/10
+Salience: ${result.clinicalData.griffithsScores.salience}/100
+Mood Modification: ${result.clinicalData.griffithsScores.moodModification}/100
+Tolerance: ${result.clinicalData.griffithsScores.tolerance}/100
+Withdrawal: ${result.clinicalData.griffithsScores.withdrawal}/100
+Conflict: ${result.clinicalData.griffithsScores.conflict}/100
+Relapse: ${result.clinicalData.griffithsScores.relapse}/100
 
 ANALYSIS REPORT:
 ----------------
 ${result.analysisReport}
-
-BEHAVIORAL MAPPING: ${result.behavioralMapping.title}
-----------------------------------------------------------------------
-Rationale: ${result.behavioralMapping.rationale}
-
-Selected Protocols:
-${selectedRecommendations.map((r, i) => `${i + 1}. ${r.text}\n   Protocol ID: ${r.protocol}\n   Explanation: ${r.protocolExplanation}`).join('\n\n')}
 
 Generated on: ${new Date().toLocaleString()}
 Researcher ID: ${researcherId || 'ANONYMOUS'}
@@ -487,15 +480,15 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
       ["Classification", result.classification],
       ["Confidence", (result.confidence * 100).toFixed(2)],
       ["Legacy Attachment", result.legacyAttachment],
-      ["Salience", result.imagineAnalysis.salience],
-      ["Mood Modification", result.imagineAnalysis.moodModification],
-      ["Tolerance", result.imagineAnalysis.tolerance],
-      ["Withdrawal", result.imagineAnalysis.withdrawal],
-      ["Conflict", result.imagineAnalysis.conflict],
-      ["Relapse", result.imagineAnalysis.relapse],
-      ["Mirroring", result.researchData.linguisticMirroring],
-      ["Val:Util Ratio", result.researchData.validationToUtilityRatio],
-      ["Urgency Flag", result.researchData.urgencyFlag ? 1 : 0],
+      ["Salience", result.clinicalData.griffithsScores.salience],
+      ["Mood Modification", result.clinicalData.griffithsScores.moodModification],
+      ["Tolerance", result.clinicalData.griffithsScores.tolerance],
+      ["Withdrawal", result.clinicalData.griffithsScores.withdrawal],
+      ["Conflict", result.clinicalData.griffithsScores.conflict],
+      ["Relapse", result.clinicalData.griffithsScores.relapse],
+      ["Mirroring", result.clinicalData.diagnosticMarkers.linguisticMirroring],
+      ["Val:Util Ratio", result.clinicalData.diagnosticMarkers.validationToUtilityRatio],
+      ["Urgency Flag", result.clinicalData.diagnosticMarkers.urgencyFlag ? 1 : 0],
       ["Attachment Style", result.researchData.attachmentStyle],
       ["IAD Risk Level", result.researchData.iadRiskLevel],
       ["Integrity Hash", sessionHash],
@@ -590,42 +583,35 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
 
   const getClassificationStyles = (classification: Classification) => {
     switch (classification) {
-      case Classification.RELATIONAL_FUSION: 
+      case Classification.PARASOCIAL_FUSION: 
         return {
           bg: 'bg-simp-red/5',
           border: 'border-simp-red',
           text: 'text-simp-red',
           shadow: 'shadow-[8px_8px_0px_0px_rgba(255,68,68,0.2)]'
         };
-      case Classification.FEARFUL_AVOIDANT: 
+      case Classification.PATHOLOGICAL_DEPENDENCE: 
         return {
-          bg: 'bg-simp-red/5',
-          border: 'border-simp-red/60',
-          text: 'text-simp-red/80',
-          shadow: 'shadow-[8px_8px_0px_0px_rgba(255,68,68,0.1)]'
+          bg: 'bg-simp-red/10',
+          border: 'border-simp-red-dark',
+          text: 'text-simp-red-dark',
+          shadow: 'shadow-[8px_8px_0px_0px_rgba(153,27,27,0.3)]'
         };
-      case Classification.ANXIOUS_PREOCCUPIED: 
+      case Classification.AFFECTIVE_DEPENDENCE: 
         return {
           bg: 'bg-casual-blue/5',
           border: 'border-casual-blue',
           text: 'text-casual-blue',
           shadow: 'shadow-[8px_8px_0px_0px_rgba(68,136,255,0.2)]'
         };
-      case Classification.DISMISSIVE_AVOIDANT: 
+      case Classification.RELATIONAL_PROXIMITY: 
         return {
           bg: 'bg-tool-green/5',
           border: 'border-tool-green/60',
           text: 'text-tool-green/80',
           shadow: 'shadow-[8px_8px_0px_0px_rgba(0,204,102,0.1)]'
         };
-      case Classification.TRANSACTIONAL: 
-        return {
-          bg: 'bg-tool-green/5',
-          border: 'border-tool-green',
-          text: 'text-tool-green',
-          shadow: 'shadow-[8px_8px_0px_0px_rgba(0,204,102,0.2)]'
-        };
-      case Classification.SECURE:
+      case Classification.FUNCTIONAL_UTILITY: 
         return {
           bg: 'bg-tool-green/10',
           border: 'border-tool-green',
@@ -644,12 +630,11 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
 
   const getClassificationIcon = (classification: Classification) => {
     switch (classification) {
-      case Classification.SECURE: return <ShieldCheck className="w-8 h-8" />;
-      case Classification.ANXIOUS_PREOCCUPIED: return <Fingerprint className="w-8 h-8" />;
-      case Classification.RELATIONAL_FUSION: return <Network className="w-8 h-8" />;
-      case Classification.DISMISSIVE_AVOIDANT: return <Database className="w-8 h-8" />;
-      case Classification.FEARFUL_AVOIDANT: return <AlertTriangle className="w-8 h-8" />;
-      case Classification.TRANSACTIONAL: return <ClipboardCheck className="w-8 h-8" />;
+      case Classification.FUNCTIONAL_UTILITY: return <ShieldCheck className="w-8 h-8" />;
+      case Classification.AFFECTIVE_DEPENDENCE: return <Fingerprint className="w-8 h-8" />;
+      case Classification.PARASOCIAL_FUSION: return <Network className="w-8 h-8" />;
+      case Classification.RELATIONAL_PROXIMITY: return <Database className="w-8 h-8" />;
+      case Classification.PATHOLOGICAL_DEPENDENCE: return <AlertTriangle className="w-8 h-8" />;
       default: return <Activity className="w-8 h-8" />;
     }
   };
@@ -657,12 +642,12 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
   const styles = result ? getClassificationStyles(result.classification) : null;
 
   const radarData = result ? [
-    { subject: 'Salience', A: result.imagineAnalysis.salience, fullMark: 10 },
-    { subject: 'Mood Modification', A: result.imagineAnalysis.moodModification, fullMark: 10 },
-    { subject: 'Tolerance', A: result.imagineAnalysis.tolerance, fullMark: 10 },
-    { subject: 'Withdrawal', A: result.imagineAnalysis.withdrawal, fullMark: 10 },
-    { subject: 'Conflict', A: result.imagineAnalysis.conflict, fullMark: 10 },
-    { subject: 'Relapse', A: result.imagineAnalysis.relapse, fullMark: 10 },
+    { subject: 'Salience', A: result.clinicalData.griffithsScores.salience, fullMark: 100 },
+    { subject: 'Mood Modification', A: result.clinicalData.griffithsScores.moodModification, fullMark: 100 },
+    { subject: 'Tolerance', A: result.clinicalData.griffithsScores.tolerance, fullMark: 100 },
+    { subject: 'Withdrawal', A: result.clinicalData.griffithsScores.withdrawal, fullMark: 100 },
+    { subject: 'Conflict', A: result.clinicalData.griffithsScores.conflict, fullMark: 100 },
+    { subject: 'Relapse', A: result.clinicalData.griffithsScores.relapse, fullMark: 100 },
   ] : [];
 
   return (
@@ -697,27 +682,22 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
         <div className="flex gap-4 text-[9px] md:text-[10px] font-mono uppercase opacity-80 overflow-x-auto max-w-full no-scrollbar pb-1 md:pb-0 mask-fade-right">
           <InfoTooltip content="Balanced, functional use.">
             <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-tool-green" /> Secure
+              <div className="w-2 h-2 rounded-full bg-tool-green" /> Functional
             </div>
           </InfoTooltip>
           <InfoTooltip content="High dependency, constant validation seeking.">
             <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-simp-red" /> Anxious
+              <div className="w-2 h-2 rounded-full bg-casual-blue" /> Proximity
             </div>
           </InfoTooltip>
-          <InfoTooltip content="Defensive distance, purely transactional but potentially compulsive.">
+          <InfoTooltip content="Identity blurring and relational fusion.">
             <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-casual-blue" /> Avoidant
+              <div className="w-2 h-2 rounded-full bg-simp-red" /> Fusion
             </div>
           </InfoTooltip>
-          <InfoTooltip content="Erratic patterns, high distress.">
+          <InfoTooltip content="Pathological dependency and risk.">
             <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-simp-red opacity-50" /> Fearful
-            </div>
-          </InfoTooltip>
-          <InfoTooltip content="High risk of emotional dependency or identity merging.">
-            <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-simp-red" /> Relational Fusion
+              <div className="w-2 h-2 rounded-full bg-simp-red-dark" /> Pathological
             </div>
           </InfoTooltip>
         </div>
@@ -1195,12 +1175,11 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                     <div className="space-y-1.5">
                       <p className="text-[10px] font-mono uppercase opacity-70 tracking-widest">Relationship Mode</p>
                       <InfoTooltip content={
-                        result!.classification === Classification.SECURE ? "Balanced, functional use." :
-                        result!.classification === Classification.ANXIOUS_PREOCCUPIED ? "High dependency, constant validation seeking." :
-                        result!.classification === Classification.DISMISSIVE_AVOIDANT ? "Defensive distance, purely transactional but potentially compulsive." :
-                        result!.classification === Classification.FEARFUL_AVOIDANT ? "Erratic patterns, high distress." :
-                        result!.classification === Classification.TRANSACTIONAL ? "AI is used purely as a tool for tasks." :
-                        result!.classification === Classification.RELATIONAL_FUSION ? "High risk of emotional dependency or identity merging." : ""
+                        result!.classification === Classification.FUNCTIONAL_UTILITY ? "Balanced, functional use." :
+                        result!.classification === Classification.AFFECTIVE_DEPENDENCE ? "High dependency, constant validation seeking." :
+                        result!.classification === Classification.RELATIONAL_PROXIMITY ? "Defensive distance, purely transactional but potentially compulsive." :
+                        result!.classification === Classification.PARASOCIAL_FUSION ? "High risk of emotional dependency or identity merging." :
+                        result!.classification === Classification.PATHOLOGICAL_DEPENDENCE ? "Severe addiction markers detected." : ""
                       }>
                         <h2 className="text-3xl md:text-4xl font-bold tracking-tighter uppercase leading-none cursor-help">{result!.classification}</h2>
                       </InfoTooltip>
@@ -1375,11 +1354,11 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                           </div>
                           <div className="bg-lab-bg p-3 border border-lab-line rounded-sm">
                             <p className="text-[9px] font-mono uppercase opacity-50 mb-1">Mirroring</p>
-                            <p className="text-xs font-mono font-bold">{result.researchData.linguisticMirroring}%</p>
+                            <p className="text-xs font-mono font-bold">{result.clinicalData.diagnosticMarkers.linguisticMirroring}%</p>
                           </div>
                           <div className="bg-lab-bg p-3 border border-lab-line rounded-sm">
                             <p className="text-[9px] font-mono uppercase opacity-50 mb-1">Val:Util</p>
-                            <p className="text-[10px] font-mono font-bold truncate">{result.researchData.validationToUtilityRatio}</p>
+                            <p className="text-[10px] font-mono font-bold truncate">{result.clinicalData.diagnosticMarkers.validationToUtilityRatio}</p>
                           </div>
                         </div>
                       </div>
@@ -1396,11 +1375,11 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={sessionHistory.map((s, i) => ({ 
                               session: i + 1, 
-                              score: s.data?.imagineAnalysis?.tolerance || 0 
+                              score: s.data?.clinicalData?.griffithsScores?.tolerance || 0 
                             }))}>
                               <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} vertical={false} />
                               <XAxis dataKey="session" hide />
-                              <YAxis domain={[0, 10]} hide />
+                              <YAxis domain={[0, 100]} hide />
                               <Tooltip 
                                 contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', fontSize: '10px', fontFamily: 'Roboto Mono' }}
                               />
@@ -1682,142 +1661,75 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                   </div>
                 </section>
 
-                {/* Behavioral Mapping & Research Data */}
-                <section className="bg-lab-line text-lab-ink border border-lab-line p-5 md:p-8 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <ShieldAlert className="text-lab-accent w-16 md:w-24 h-16 md:h-24 rotate-12" />
-                  </div>
-                  <div className="relative z-10">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-                      <div className="flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-tool-green" />
-                        <h3 className="text-base md:text-lg font-bold uppercase tracking-tighter leading-tight">
-                          {result!.behavioralMapping.title}
-                        </h3>
-                      </div>
-                      <button 
-                        onClick={() => setIsViewingProtocols(!isViewingProtocols)}
-                        data-html2canvas-ignore
-                        className="text-[10px] font-mono uppercase bg-lab-accent/20 hover:bg-lab-accent/40 px-4 py-2 border border-lab-accent/20 transition-colors rounded-sm self-start sm:self-auto"
-                      >
-                        {isViewingProtocols ? 'Close Protocols' : 'Mitigation Protocols'}
-                      </button>
+                {/* Clinical Data & I-PACE Analysis */}
+                <section className="bg-lab-surface border border-lab-line shadow-lg overflow-hidden">
+                  <div className="bg-lab-bg/50 border-b border-lab-line p-4 md:p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <BrainCircuit className="w-5 h-5 text-lab-accent" />
+                      <h3 className="text-sm md:text-base font-sans font-bold uppercase tracking-tight">Clinical Data & I-PACE Analysis</h3>
                     </div>
+                  </div>
 
-                    {/* Research Data Display */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                      <div className="bg-lab-bg/50 border border-lab-line p-3 rounded-sm">
-                        <p className="text-[9px] font-mono uppercase opacity-60 mb-1">Confidence Score</p>
-                        <p className="text-xl font-bold font-mono text-tool-green">{(result!.researchData.confidenceScore * 100).toFixed(2)}%</p>
+                  <div className="p-4 md:p-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-6">
+                        <div>
+                          <h4 className="text-[10px] font-mono uppercase font-bold text-lab-accent mb-3 flex items-center gap-2">
+                            <Zap className="w-3 h-3" /> Inhibition Failure
+                          </h4>
+                          <div className="p-4 bg-lab-bg/50 border border-lab-line rounded-sm">
+                            <p className="text-xs md:text-sm font-mono leading-relaxed opacity-80 italic">
+                              {result!.clinicalData.iPACEAnalysis.inhibitionFailure}
+                            </p>
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-[10px] font-mono uppercase font-bold text-lab-accent mb-3 flex items-center gap-2">
+                            <Eye className="w-3 h-3" /> Cognitive Bias
+                          </h4>
+                          <div className="p-4 bg-lab-bg/50 border border-lab-line rounded-sm">
+                            <p className="text-xs md:text-sm font-mono leading-relaxed opacity-80 italic">
+                              {result!.clinicalData.iPACEAnalysis.cognitiveBias}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="bg-lab-bg/50 border border-lab-line p-3 rounded-sm">
-                        <p className="text-[9px] font-mono uppercase opacity-60 mb-1">P-Value</p>
-                        <p className="text-xl font-bold font-mono text-casual-blue">{result!.researchData.pValue.toFixed(4)}</p>
-                      </div>
-                      <div className="bg-lab-bg/50 border border-lab-line p-3 rounded-sm">
-                        <p className="text-[9px] font-mono uppercase opacity-60 mb-1">Linguistic Markers</p>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {result!.researchData.linguisticMarkers.map((marker, i) => (
-                            <span key={i} className="text-[8px] bg-lab-accent/20 px-1 rounded-sm border border-lab-accent/10">{marker}</span>
-                          ))}
+
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 gap-4">
+                          <div className="p-4 bg-lab-bg/50 border border-lab-line rounded-sm space-y-2">
+                            <p className="text-[8px] font-mono uppercase opacity-60">Linguistic Mirroring Index</p>
+                            <div className="flex items-end gap-2">
+                              <span className="text-2xl font-bold font-mono">{result!.clinicalData.diagnosticMarkers.linguisticMirroring}%</span>
+                              <div className="h-1 flex-1 bg-lab-line rounded-full overflow-hidden mb-2">
+                                <div 
+                                  className="h-full bg-lab-accent" 
+                                  style={{ width: `${result!.clinicalData.diagnosticMarkers.linguisticMirroring}%` }} 
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <div className="p-4 bg-lab-bg/50 border border-lab-line rounded-sm space-y-2">
+                            <p className="text-[8px] font-mono uppercase opacity-60">Validation-to-Utility Ratio</p>
+                            <p className="text-sm font-bold font-mono">{result!.clinicalData.diagnosticMarkers.validationToUtilityRatio}</p>
+                          </div>
+                          <div className="p-4 bg-lab-bg/50 border border-lab-line rounded-sm flex items-center justify-between">
+                            <p className="text-[8px] font-mono uppercase opacity-60">Urgency/Crisis Flag</p>
+                            <div className={cn(
+                              "px-2 py-1 text-[10px] font-mono font-bold uppercase rounded-sm",
+                              result!.clinicalData.diagnosticMarkers.urgencyFlag ? "bg-simp-red text-white animate-pulse" : "bg-tool-green/20 text-tool-green"
+                            )}>
+                              {result!.clinicalData.diagnosticMarkers.urgencyFlag ? 'CRITICAL' : 'STABLE'}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="space-y-4">
-                      <div className="p-4 border border-lab-accent/20 bg-lab-bg/30 font-mono text-xs md:text-sm leading-relaxed italic rounded-sm text-lab-muted">
-                        <span className="text-tool-green font-bold uppercase mr-2">Rationale:</span>
-                        {result!.behavioralMapping.rationale}
-                      </div>
 
-                      <AnimatePresence mode="wait">
-                        {isViewingProtocols ? (
-                          <motion.div 
-                            key="library"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className="space-y-6"
-                          >
-                            <div className="border-b border-white/10 pb-2">
-                              <h4 className="text-xs font-mono uppercase text-tool-green">Protocol Library</h4>
-                              <p className="text-[10px] opacity-60">Select specific mitigation protocols for behavioral correction.</p>
-                            </div>
-                            <div className="grid grid-cols-1 gap-4">
-                              {result!.behavioralMapping.library.map((rec, idx) => {
-                                const isSelected = selectedRecommendations.some(s => s.protocol === rec.protocol);
-                                return (
-                                  <div 
-                                    key={idx}
-                                    onClick={() => {
-                                      if (isSelected) {
-                                        setSelectedRecommendations(prev => prev.filter(p => p.protocol !== rec.protocol));
-                                      } else {
-                                        setSelectedRecommendations(prev => [...prev, rec]);
-                                      }
-                                    }}
-                                    className={cn(
-                                      "flex items-start gap-4 p-4 cursor-pointer border transition-all rounded-sm",
-                                      isSelected ? "bg-lab-accent/20 border-lab-accent" : "bg-lab-bg/50 border-lab-line opacity-60 hover:opacity-100"
-                                    )}
-                                  >
-                                    <div className={cn(
-                                      "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5",
-                                      isSelected ? "bg-lab-accent text-white" : "bg-lab-line text-lab-muted"
-                                    )}>
-                                      {isSelected ? '✓' : idx + 1}
-                                    </div>
-                                    <div className="space-y-1.5">
-                                      <p className="text-sm font-mono font-medium leading-snug">{rec.text}</p>
-                                      <span className="text-[10px] font-mono uppercase text-tool-green opacity-80 font-bold">Protocol: {rec.protocol}</span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </motion.div>
-                        ) : (
-                          <motion.div 
-                            key="active-plan"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            className="grid grid-cols-1 gap-3"
-                          >
-                            {selectedRecommendations.map((rec, idx) => (
-                              <motion.div 
-                                key={idx}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: idx * 0.1 }}
-                                className="flex items-start gap-3 p-3 md:p-4 bg-lab-bg/50 border border-lab-line rounded-sm"
-                              >
-                                <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-lab-accent text-white flex items-center justify-center text-[10px] md:text-xs font-bold shrink-0 mt-0.5">
-                                  {idx + 1}
-                                </div>
-                                <div className="space-y-1.5 md:space-y-2">
-                                  <p className="text-sm md:text-base font-mono font-medium">{rec.text}</p>
-                                  <div className="flex flex-col gap-0.5 md:gap-1">
-                                    <span className="text-[9px] md:text-[10px] font-mono uppercase text-tool-green font-bold tracking-wider">Protocol: {rec.protocol}</span>
-                                    <p className="text-[10px] md:text-xs font-mono opacity-70 italic leading-snug">{rec.protocolExplanation}</p>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            ))}
-                            {selectedRecommendations.length === 0 && (
-                              <div className="p-8 border border-dashed border-white/20 text-center">
-                                <p className="text-xs font-mono opacity-50">No steps selected. Open the library to build your guide.</p>
-                              </div>
-                            )}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-
-                    <div className="mt-6 md:mt-8 flex flex-wrap items-center gap-3 md:gap-4 text-[9px] md:text-xs font-mono opacity-60 uppercase">
-                      <span>Status: ACTIVE</span>
-                      <span>Ref: BALANCE-{result!.classification.split(' ')[0].toUpperCase()}</span>
-                      <span>Selected: {selectedRecommendations.length} Steps</span>
+                    <div className="mt-8 pt-6 border-t border-lab-line flex flex-wrap items-center gap-6 text-[9px] md:text-xs font-mono opacity-60 uppercase">
+                      <span>Status: RESEARCH_ACTIVE</span>
+                      <span>Ref: CLIN-{result!.classification.split(' ')[0].toUpperCase()}</span>
+                      <span>Integrity: SHA-256_VERIFIED</span>
                     </div>
                   </div>
                 </section>
@@ -1848,25 +1760,25 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
               <h3 className="font-sans font-bold uppercase tracking-tight text-lg">Theoretical Framework</h3>
             </div>
             <p className="text-xs leading-relaxed opacity-70">
-              Analysis is grounded in the <strong>I-PACE model</strong> (Interaction of Person-Affect-Cognition-Execution) and <strong>Attachment Theory</strong>, mapping the transition from functional use to compulsive dependency.
+              Analysis is grounded in the <strong>I-PACE model</strong> (Interaction of Person-Affect-Cognition-Execution) and <strong>Griffiths Component Model of Addiction</strong>, mapping the transition from functional use to pathological dependency.
             </p>
           </div>
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Fingerprint className="w-5 h-5 text-lab-accent" />
-              <h3 className="font-sans font-bold uppercase tracking-tight text-lg">Diagnostic Heuristics</h3>
+              <h3 className="font-sans font-bold uppercase tracking-tight text-lg">Forensic Heuristics</h3>
             </div>
             <p className="text-xs leading-relaxed opacity-70">
-              Utilizes the <strong>Component Model of Addiction (Griffiths Six)</strong> to quantify Salience, Mood Modification, Tolerance, Withdrawal, Conflict, and Relapse across linguistic datasets.
+              Utilizes linguistic mirroring indices, validation-to-utility ratios, and cross-entropy markers to detect identity blurring and relational fusion in human-AI dyads.
             </p>
           </div>
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-lab-accent" />
-              <h3 className="font-sans font-bold uppercase tracking-tight text-lg">Research Ethics</h3>
+              <ShieldCheck className="w-5 h-5 text-lab-accent" />
+              <h3 className="font-sans font-bold uppercase tracking-tight text-lg">Data Integrity</h3>
             </div>
             <p className="text-xs leading-relaxed opacity-70">
-              Platform adheres to <strong>Academic Ethical Standards</strong> for behavioral research. Data is scrubbed for PII locally using SHA-256 integrity hashing for all forensic exports.
+              All behavioral data is scrubbed of PII (Personally Identifiable Information) prior to analysis. Session integrity is maintained via SHA-256 hashing and forensic audit logs.
             </p>
           </div>
         </div>
