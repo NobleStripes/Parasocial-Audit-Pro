@@ -1,8 +1,16 @@
 {
-  "name": "parasocial-audit-lab",
+  "name": "parasocial-audit",
   "private": true,
   "version": "1.0.0-Research",
   "type": "module",
+  "keywords": [
+    "psychology-research",
+    "behavioral-addiction",
+    "linguistic-analysis",
+    "internet-addiction-disorder",
+    "clinical-diagnostics",
+    "forensic-audit"
+  ],
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",

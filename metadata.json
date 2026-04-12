@@ -1,5 +1,5 @@
 {
-  "name": "Parasocial Audit Lab",
-  "description": "A research-oriented tool for the forensic audit of parasocial dynamics in human-AI interactions. Uses behavioral linguistics and cognitive-behavioral models to support relational analytics and behavioral mapping.",
+  "name": "parasocial-audit",
+  "description": "A specialized research tool designed to quantify and formalize AI dependence within the clinical framework of Internet Addiction Disorder (IAD). By applying automated linguistic analysis to human–AI interaction transcripts, the tool extracts objective behavioral markers to assist in the study of relational fusion and pathological enmeshment.",
   "requestFramePermissions": []
 }
