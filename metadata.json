@@ -1,5 +1,5 @@
 {
-  "name": "parasocial-audit",
+  "name": "Parasocial Audit",
   "description": "A specialized research tool designed to quantify and formalize AI dependence within the clinical framework of Internet Addiction Disorder (IAD). By applying automated linguistic analysis to human–AI interaction transcripts, the tool extracts objective behavioral markers to assist in the study of relational fusion and pathological enmeshment.",
   "requestFramePermissions": []
 }
