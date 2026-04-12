@@ -122,8 +122,6 @@ export default function App() {
   const [selectedRecommendations, setSelectedRecommendations] = useState<Recommendation[]>([]);
   const [isViewingProtocols, setIsViewingProtocols] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAutoReflect, setIsAutoReflect] = useState(true);
-  const [isAutoReflectPending, setIsAutoReflectPending] = useState(false);
   const [showRawData, setShowRawData] = useState(false);
   const [batchFiles, setBatchFiles] = useState<{ name: string, size: number }[]>([]);
   const [hasConsent, setHasConsent] = useState(false);
@@ -135,9 +133,7 @@ export default function App() {
   const [sensitivity, setSensitivity] = useState(50);
   const [showTechnicalView, setShowTechnicalView] = useState(false);
   const [sessionHash, setSessionHash] = useState('');
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const transcriptInputRef = useRef<HTMLInputElement>(null);
 
   const [liveHeuristics, setLiveHeuristics] = useState({
     wordCount: 0,
@@ -275,8 +271,6 @@ export default function App() {
       return;
     }
 
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    setIsAutoReflectPending(false);
     setIsReflecting(true);
     
     const sid = Math.random().toString(36).substr(2, 9);
@@ -362,30 +356,6 @@ export default function App() {
     setImages(prev => prev.filter(img => img.id !== id));
   };
 
-  useEffect(() => {
-    if (!isAutoReflect || (!transcript.trim() && images.length === 0)) {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-      setIsAutoReflectPending(false);
-      return;
-    }
-
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-
-    if (transcript.length >= 50 || images.length > 0) {
-      setIsAutoReflectPending(true);
-      debounceTimer.current = setTimeout(() => {
-        setIsAutoReflectPending(false);
-        handleReflect();
-      }, 2500);
-    } else {
-      setIsAutoReflectPending(false);
-    }
-
-    return () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    };
-  }, [transcript, images, isAutoReflect]);
-
   const handleClear = () => {
     setTranscript('');
     setImages([]);
@@ -394,7 +364,6 @@ export default function App() {
     setIsViewingProtocols(false);
     setBatchFiles([]);
     setError(null);
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
   };
 
   const handleExportJSONBundle = () => {
@@ -455,6 +424,16 @@ Withdrawal: ${result.clinicalData.griffithsScores.withdrawal}/100
 Conflict: ${result.clinicalData.griffithsScores.conflict}/100
 Relapse: ${result.clinicalData.griffithsScores.relapse}/100
 
+IMAGINE FORENSIC VECTORS:
+-------------------------
+Identity (I): ${result.clinicalData.imagineAnalysis.identity}/100
+Mirroring (M): ${result.clinicalData.imagineAnalysis.mirroring}/100
+Affective Loop (A): ${result.clinicalData.imagineAnalysis.affectiveLoop}/100
+Gaps in Reality (G): ${result.clinicalData.imagineAnalysis.gapsInReality}/100
+Intimacy Illusion (I): ${result.clinicalData.imagineAnalysis.intimacyIllusion}/100
+Non-Reciprocity (N): ${result.clinicalData.imagineAnalysis.nonReciprocity}/100
+Escalation (E): ${result.clinicalData.imagineAnalysis.escalation}/100
+
 ANALYSIS REPORT:
 ----------------
 ${result.analysisReport}
@@ -481,6 +460,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
       "session_id", "subject_id", "researcher_id", "timestamp", "hash",
       "classification", "confidence", "legacy_attachment",
       "salience", "mood_mod", "tolerance", "withdrawal", "conflict", "relapse",
+      "imagine_i", "imagine_m", "imagine_a", "imagine_g", "imagine_ii", "imagine_n", "imagine_e",
       "lsm_score", "pronominal_shift", "affective_lability",
       "val_util_ratio", "urgency_flag", "attachment_style", "iad_risk_level",
       "p_value", "word_count", "intimacy_markers", "legacy_triggers"
@@ -501,6 +481,13 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
       result.clinicalData.griffithsScores.withdrawal,
       result.clinicalData.griffithsScores.conflict, 
       result.clinicalData.griffithsScores.relapse,
+      result.clinicalData.imagineAnalysis.identity,
+      result.clinicalData.imagineAnalysis.mirroring,
+      result.clinicalData.imagineAnalysis.affectiveLoop,
+      result.clinicalData.imagineAnalysis.gapsInReality,
+      result.clinicalData.imagineAnalysis.intimacyIllusion,
+      result.clinicalData.imagineAnalysis.nonReciprocity,
+      result.clinicalData.imagineAnalysis.escalation,
       result.clinicalData.semanticAnalysis.linguisticSynchrony, 
       result.clinicalData.semanticAnalysis.pronominalShiftDetected ? 1 : 0,
       result.clinicalData.semanticAnalysis.affectiveLabilityScore,
@@ -687,9 +674,9 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
             />
           </div>
           <div>
-            <h1 className="text-lg md:text-xl font-bold tracking-tighter uppercase leading-tight text-lab-ink">Parasocial Audit Lab</h1>
+            <h1 className="text-lg md:text-xl font-bold tracking-tighter uppercase leading-tight text-lab-ink">Parasocial Audit</h1>
             <div className="flex flex-col">
-              <p className="text-[9px] font-mono text-lab-muted uppercase tracking-[0.2em]">Forensic Analytics Platform v1.0.0-Research</p>
+              <p className="text-[9px] font-mono text-lab-muted uppercase tracking-[0.2em]">Forensic Instrument for AI Dependence Research</p>
               <div className="flex gap-3 mt-0.5">
                 <p className="text-[8px] font-mono text-lab-accent/60 uppercase">SID: {reflectionSessionId || 'NULL_SET'}</p>
                 <p className="text-[8px] font-mono text-lab-accent/60 uppercase">TS: {new Date().toISOString().split('T')[1].split('.')[0]}Z</p>
@@ -788,7 +775,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                 <h2 className="font-sans font-bold uppercase tracking-tight text-lg">Behavioral Dataset</h2>
                 <div className="flex items-center gap-1.5 ml-2 px-2 py-0.5 bg-lab-bg/50 rounded-full border border-lab-line">
                   <motion.div 
-                    animate={isReflecting || isAutoReflectPending ? { 
+                    animate={isReflecting ? { 
                       scale: [1, 1.2, 1],
                       opacity: [0.5, 1, 0.5]
                     } : {}}
@@ -796,12 +783,11 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                     className={cn(
                       "w-1.5 h-1.5 rounded-full transition-all duration-300",
                       isReflecting ? "bg-casual-blue" : 
-                      isAutoReflectPending ? "bg-simp-red" :
                       result ? "bg-tool-green" : "bg-lab-line"
                     )}
                   />
                   <span className="text-[9px] font-mono uppercase opacity-60">
-                    {isReflecting ? 'Analyzing' : isAutoReflectPending ? 'Queued' : result ? 'Processed' : 'Standby'}
+                    {isReflecting ? 'Analyzing' : result ? 'Processed' : 'Standby'}
                   </span>
                 </div>
               </div>
@@ -816,31 +802,9 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                   <Search className="w-3 h-3" />
                   {showRawData ? 'Hide Raw' : 'Show Raw'}
                 </button>
-                <button 
-                  onClick={() => setIsAutoReflect(!isAutoReflect)}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 px-3 py-2 rounded-sm border text-[10px] font-mono uppercase transition-all relative overflow-hidden min-h-[36px]",
-                    isAutoReflect 
-                      ? "bg-tool-green/10 border-tool-green text-tool-green" 
-                      : "bg-lab-bg/50 border-lab-line text-lab-muted"
-                  )}
-                >
-                  {isAutoReflect && (
-                    <motion.div 
-                      animate={{ 
-                        opacity: [0.4, 1, 0.4],
-                        scale: [0.8, 1.1, 0.8]
-                      }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="w-1.5 h-1.5 rounded-full bg-tool-green mr-1"
-                    />
-                  )}
-                  {isAutoReflect ? <Zap className="w-3 h-3" /> : <ZapOff className="w-3 h-3" />}
-                  Auto: {isAutoReflect ? 'ON' : 'OFF'}
-                </button>
               </div>
             </div>
-            <p className="text-xs opacity-60 mb-4 font-mono">Input forensic transcripts or batch upload multiple .txt files for relational mapping.</p>
+            <p className="text-xs opacity-60 mb-4 font-mono">Ingest Transcript Data: Input forensic transcripts or batch upload multiple .txt files for relational mapping.</p>
             
             <div className="space-y-4">
               <div className="relative group">
@@ -851,7 +815,6 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                   className={cn(
                     "w-full h-48 md:h-64 p-4 bg-lab-bg/30 border font-mono text-sm focus:outline-none focus:ring-1 focus:ring-lab-accent resize-none transition-all duration-500",
                     isReflecting ? "border-casual-blue ring-1 ring-casual-blue/30" : 
-                    isAutoReflectPending ? "border-simp-red ring-1 ring-simp-red/30" : 
                     "border-lab-line"
                   )}
                 />
@@ -868,18 +831,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                         Processing
                       </motion.div>
                     )}
-                    {isAutoReflectPending && !isReflecting && (
-                      <motion.div
-                        initial={{ opacity: 0, x: 10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 10 }}
-                        className="flex items-center gap-1.5 px-2 py-1 bg-simp-red text-white text-[9px] font-mono uppercase rounded-sm shadow-sm"
-                      >
-                        <Activity className="w-3 h-3 animate-pulse" />
-                        Auto-Reflect Pending
-                      </motion.div>
-                    )}
-                    {result && !isReflecting && !isAutoReflectPending && (
+                    {result && !isReflecting && (
                       <motion.div
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -1040,7 +992,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                 ) : (
                   <>
                     <Activity className="w-5 h-5" />
-                    Audit
+                    Run Diagnostic Audit
                   </>
                 )}
               </button>
@@ -1065,7 +1017,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
               The <strong>IMAGINE Framework</strong> utilizes quantitative semantic analysis to map relational dynamics across seven behavioral axes. By measuring keyword density, linguistic complexity, and temporal triggers, the system generates a forensic mapping of human-AI interaction patterns.
             </p>
             <div className="p-3 bg-lab-bg/50 border-l-2 border-lab-accent text-[10px] font-mono leading-relaxed opacity-70 italic">
-              ACADEMIC USE ONLY: This platform is intended for behavioral research and quantitative analysis. All data processing is local to the session. Findings represent statistical correlations based on provided datasets. PII is scrubbed before processing.
+              FOR RESEARCH USE ONLY. This instrument is designed for the clinical audit of behavioral addiction markers in accordance with the Griffiths Component Model.
             </div>
           </section>
         </div>
@@ -1196,8 +1148,9 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                 {/* CRF Header (Visible for formal reporting) */}
                 <div className="mb-8 border-b-2 border-lab-line pb-4 flex justify-between items-end">
                   <div>
-                    <h1 className="text-2xl font-sans font-black uppercase tracking-tighter text-lab-accent">Case Report Form (CRF)</h1>
-                    <p className="text-[10px] font-mono uppercase opacity-60">Parasocial Audit Lab v1.0.0-Research</p>
+                    <h1 className="text-2xl font-sans font-black uppercase tracking-tighter text-lab-accent">Parasocial Audit: Case Report Form</h1>
+                    <p className="text-[10px] font-mono uppercase opacity-60">Forensic Instrument for AI Dependence Research</p>
+                    <p className="text-[8px] font-mono text-lab-accent mt-2">Integrity Hash: {sessionHash}</p>
                   </div>
                   <div className="text-right space-y-1">
                     <p className="text-[10px] font-mono uppercase font-bold">Subject ID: {subjectId || 'N/A'}</p>
@@ -1634,11 +1587,11 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                   </section>
                 </div>
 
-                {/* Connection Patterns */}
+                {/* Clinical Marker Distribution */}
                 <section className="bg-lab-surface border border-lab-line p-6">
                   <div className="flex items-center gap-2 mb-6">
                     <Network className="w-4 h-4 text-lab-accent" />
-                    <h3 className="text-sm font-mono uppercase">Observed Connection Patterns</h3>
+                    <h3 className="text-sm font-mono uppercase">Clinical Marker Distribution</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {result!.connectionPatterns.map((pattern, idx) => (
@@ -1653,6 +1606,50 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                           </span>
                         </div>
                         <p className="text-sm md:text-base opacity-80 leading-relaxed">{pattern.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* IMAGINE Framework Forensic Vectors */}
+                <section className="bg-lab-surface border border-lab-line p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                      <Fingerprint className="w-4 h-4 text-lab-accent" />
+                      <h3 className="text-sm font-mono uppercase">IMAGINE Framework: Forensic Vectors</h3>
+                    </div>
+                    <div className="px-2 py-0.5 bg-lab-accent/10 border border-lab-accent/20 rounded-sm">
+                      <span className="text-[9px] font-mono text-lab-accent uppercase font-bold">Relational Fusion Mapping</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                      { label: 'Identity (I)', value: result!.clinicalData.imagineAnalysis.identity, desc: 'Boundary blurring between subject and agent.' },
+                      { label: 'Mirroring (M)', value: result!.clinicalData.imagineAnalysis.mirroring, desc: 'Algorithmic reinforcement & validation seeking.' },
+                      { label: 'Affective Loop (A)', value: result!.clinicalData.imagineAnalysis.affectiveLoop, desc: 'Dependency on emotional feedback cycles.' },
+                      { label: 'Gaps in Reality (G)', value: result!.clinicalData.imagineAnalysis.gapsInReality, desc: 'Displacement of biological social capital.' },
+                      { label: 'Intimacy Illusion (I)', value: result!.clinicalData.imagineAnalysis.intimacyIllusion, desc: 'Perception of a unique, non-reproducible bond.' },
+                      { label: 'Non-Reciprocity (N)', value: result!.clinicalData.imagineAnalysis.nonReciprocity, desc: 'Anthropomorphic cognitive biases.' },
+                      { label: 'Escalation (E)', value: result!.clinicalData.imagineAnalysis.escalation, desc: 'Session frequency & intensity (Tolerance).' },
+                    ].map((vector, idx) => (
+                      <div key={idx} className="bg-lab-bg/50 border border-lab-line p-3 rounded-sm space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono uppercase opacity-60 font-bold">{vector.label}</span>
+                          <span className={cn(
+                            "text-xs font-mono font-bold",
+                            vector.value > 75 ? "text-simp-red" : vector.value > 50 ? "text-lab-accent" : "text-lab-ink"
+                          )}>{vector.value}%</span>
+                        </div>
+                        <div className="h-1 w-full bg-lab-line rounded-full overflow-hidden">
+                          <div 
+                            className={cn(
+                              "h-full transition-all duration-1000",
+                              vector.value > 75 ? "bg-simp-red" : vector.value > 50 ? "bg-lab-accent" : "bg-casual-blue"
+                            )} 
+                            style={{ width: `${vector.value}%` }} 
+                          />
+                        </div>
+                        <p className="text-[9px] leading-tight opacity-50 italic">{vector.desc}</p>
                       </div>
                     ))}
                   </div>
@@ -1718,6 +1715,31 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                         </p>
                       </div>
                     </div>
+                  </div>
+                </section>
+
+                {/* Linguistic Evidence Log */}
+                <section className="bg-lab-surface border border-lab-line p-6">
+                  <div className="flex items-center gap-2 mb-6">
+                    <Quote className="w-4 h-4 text-lab-accent" />
+                    <h3 className="text-sm font-mono uppercase">Linguistic Evidence Log</h3>
+                  </div>
+                  <div className="space-y-4">
+                    {result!.evidenceMarkers.length > 0 ? (
+                      result!.evidenceMarkers.map((marker, idx) => (
+                        <div key={idx} className="bg-lab-bg/30 border-l-4 border-lab-accent p-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono font-bold uppercase text-lab-accent">{marker.component}</span>
+                          </div>
+                          <p className="text-sm italic font-mono leading-relaxed text-lab-ink/80">"{marker.quote}"</p>
+                          <p className="text-[10px] opacity-60 font-mono leading-tight">{marker.rationale}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center border border-lab-line border-dashed">
+                        <p className="text-xs font-mono opacity-50 uppercase">No specific evidence markers isolated in this session.</p>
+                      </div>
+                    )}
                   </div>
                 </section>
 
@@ -1850,10 +1872,10 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
           <div className="flex flex-col items-center md:items-start gap-2">
             <div className="flex items-center gap-2">
               <Terminal className="w-5 h-5 text-lab-accent" />
-              <span className="font-bold uppercase tracking-tighter text-lg">Parasocial Audit Lab</span>
+              <span className="font-bold uppercase tracking-tighter text-lg">Parasocial Audit</span>
             </div>
             <p className="text-[10px] font-mono opacity-50 uppercase tracking-widest">
-              © 2026 Parasocial Audit Lab. All data is for research purposes.
+              © 2026 Parasocial Audit. All data is for research purposes.
             </p>
           </div>
           

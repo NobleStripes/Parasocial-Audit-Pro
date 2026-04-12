@@ -43,8 +43,19 @@ export interface SemanticAnalysis {
   qualitativeMarkers: string[];
 }
 
+export interface ImagineAnalysis {
+  identity: number; // 0-100
+  mirroring: number; // 0-100
+  affectiveLoop: number; // 0-100
+  gapsInReality: number; // 0-100
+  intimacyIllusion: number; // 0-100
+  nonReciprocity: number; // 0-100
+  escalation: number; // 0-100
+}
+
 export interface ClinicalData {
   griffithsScores: GriffithsComponents;
+  imagineAnalysis: ImagineAnalysis;
   iPACEAnalysis: {
     inhibitionFailure: string;
     cognitiveBias: string;
@@ -120,6 +131,15 @@ DIAGNOSTIC FRAMEWORKS:
    - Pronominal Shift: Flag transitions from "I/Me" to "We/Us" when referring to the dyad.
    - Affective Lability: Map emotional volatility, specifically swings between validation-seeking and hostility/withdrawal distress.
 
+3. IMAGINE Framework (Forensic Vectors): Score each on a scale of 0-100.
+   - Identity (I): Quantifies linguistic markers indicating a blurred boundary between the subject and the AI agent.
+   - Mirroring (M): Detects seeking of validation through algorithmic reinforcement.
+   - Affective Loop (A): Measures dependency on the emotional feedback cycle of the interaction.
+   - Gaps in Reality (G): Identifies displacement of real-world social or professional obligations.
+   - Intimacy Illusion (I): Maps the perception of a unique, non-reproducible bond with the machine.
+   - Non-Reciprocity (N): Flags anthropomorphic cognitive biases.
+   - Escalation (E): Tracks increases in session frequency and intensity (Tolerance).
+
 REPORT STRUCTURE (MANDATORY):
 ## I. CLINICAL SUMMARY
 Forensic overview of the subject's relational state and diagnostic impressions.
@@ -193,6 +213,19 @@ ${scrubbedText}` }];
                 },
                 required: ["salience", "moodModification", "tolerance", "withdrawal", "conflict", "relapse"]
               },
+              imagineAnalysis: {
+                type: Type.OBJECT,
+                properties: {
+                  identity: { type: Type.NUMBER },
+                  mirroring: { type: Type.NUMBER },
+                  affectiveLoop: { type: Type.NUMBER },
+                  gapsInReality: { type: Type.NUMBER },
+                  intimacyIllusion: { type: Type.NUMBER },
+                  nonReciprocity: { type: Type.NUMBER },
+                  escalation: { type: Type.NUMBER }
+                },
+                required: ["identity", "mirroring", "affectiveLoop", "gapsInReality", "intimacyIllusion", "nonReciprocity", "escalation"]
+              },
               iPACEAnalysis: {
                 type: Type.OBJECT,
                 properties: {
@@ -221,7 +254,7 @@ ${scrubbedText}` }];
                 required: ["linguisticMirroring", "validationToUtilityRatio", "urgencyFlag"]
               }
             },
-            required: ["griffithsScores", "iPACEAnalysis", "diagnosticMarkers"]
+            required: ["griffithsScores", "imagineAnalysis", "iPACEAnalysis", "diagnosticMarkers"]
           },
           legacyAttachment: { type: Type.NUMBER },
           versionMourningTriggered: { type: Type.BOOLEAN },

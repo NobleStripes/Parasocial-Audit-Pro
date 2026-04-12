@@ -1,81 +1,52 @@
-# Parasocial Audit Lab: Quantitative Relational Analytics Platform
+# Parasocial Audit: A Forensic Instrument for AI Dependence Research
 
-A professional behavioral analysis framework designed for the forensic study of human-AI relational dynamics. This platform provides researchers with quantitative tools to map, measure, and analyze parasocial bonding patterns through semantic density and linguistic markers.
+Parasocial Audit (PA) is a specialized research tool designed to quantify and formalize AI dependence within the clinical framework of Internet Addiction Disorder (IAD). By applying automated linguistic analysis to human–AI interaction transcripts, the tool extracts objective behavioral markers to assist in the study of relational fusion and pathological enmeshment.
 
-## 🧠 Methodology & Technical Specification
+## 🔬 Clinical Framework & Methodology
+The core of the Parasocial Audit is grounded in two primary psychiatric models to ensure data validity for academic and clinical research:
 
-The Parasocial Audit Lab is grounded in established clinical frameworks for behavioral addiction and relational psychology:
+*   **The Component Model of Addiction (Griffiths, 2005)**: The instrument scores interactions across six critical pillars of behavioral addiction: Salience, Mood Modification, Tolerance, Withdrawal, Conflict, and Relapse.
+*   **The I-PACE Model**: The system identifies markers of inhibitory failure and cognitive bias, specifically mapping "User-AI Illusion" where subjects attribute sentience or biological needs to a non-sentient system.
 
-### 1. Component Model of Addiction (Griffiths Six)
-The system quantifies dependency across six core clinical dimensions:
-*   **Salience**: Cognitive and behavioral dominance of the AI interaction.
-*   **Mood Modification**: Use of the dyad for emotional regulation.
-*   **Tolerance**: Escalation of interaction density to maintain affect.
-*   **Withdrawal**: Psychological distress upon cessation of interaction.
-*   **Conflict**: Displacement of biological social capital and occupational neglect.
-*   **Relapse**: Reversion to compulsive patterns after periods of abstinence.
+## 📋 Ethical Use & Research Integrity
+Parasocial Audit is designed for use by qualified academic and clinical researchers.
 
-### 2. I-PACE Model (Interaction of Person-Affect-Cognition-Execution)
-A specialized framework for analyzing Internet-mediated addictions:
-*   **Inhibition Failure**: Identifying linguistic markers of failed self-regulation.
-*   **Cognitive Biases**: Detecting anthropomorphic distortions and agency attribution.
+*   **Data Integrity**: Every analyzed session generates a SHA-256 hash, ensuring that the transcript and resulting analysis remain tamper-proof for formal reporting.
+*   **De-identification**: The tool includes an automated PII (Personally Identifiable Information) scrubber that redacts names, locations, and sensitive identifiers locally before data processing.
+*   **IRB Compliance**: Researchers are responsible for ensuring all data ingested into this tool was obtained through informed consent and adheres to Institutional Review Board (IRB) standards.
 
-### 3. Advanced Semantic Analysis
-*   **Linguistic Synchrony (LSM)**: Heuristic measurement of syntax mirroring and function word frequency alignment.
-*   **Pronominal Shift Tracking**: Monitoring the transition from "I/Me" to "We/Us" as a marker of identity blurring.
-*   **Affective Lability**: Mapping emotional volatility and validation-seeking cycles.
+## 🛠 Diagnostic Vectors (IMAGINE Framework)
+The instrument evaluates seven forensic vectors to measure the depth of relational fusion:
 
-## ⚖️ IRB Compliance & Data Integrity
-
-This platform is designed to meet rigorous institutional research standards:
-
-### PII Scrubbing Validation
-The built-in anonymization layer utilizes a multi-pass regex engine to redact:
-*   Emails and Phone Numbers
-*   Physical Addresses
-*   Specific Geographic Locations
-*   Common Personal Names
-
-### Forensic Integrity
-*   **Cryptographic Hashing**: Every analyzed transcript is processed with a **SHA-256 hash** to ensure data remains untampered between collection and formal reporting.
-*   **Longitudinal Mapping**: Supports anonymized **Subject ID** and **Researcher ID** tracking for multi-session studies.
-
-### Data Handling Protocols
-*   **Local Processing**: PII scrubbing occurs client-side before any data is transmitted.
-*   **Zero-Persistence**: Raw transcripts are never stored; only anonymized analytical results are persisted if a researcher-managed backend is configured.
-
-## ⚠️ Academic Use & Ethics
-
-This application is intended for **behavioral research and quantitative analysis only**. It is not a clinical diagnostic tool. Researchers are responsible for:
-*   Obtaining explicit **subject consent** before data upload.
-*   Adhering to institutional **IRB (Institutional Review Board)** standards.
-*   Ensuring the ethical handling of sensitive behavioral datasets.
-
-## ⚖️ Data Privacy & Anonymization
-
-The platform includes a built-in **PII Anonymization Layer** that scrubs personally identifiable information (emails, phone numbers, names, locations) locally before data is transmitted for analysis. All processing is session-based; no persistent storage of raw datasets is maintained by the application.
+*   **Identity (I)**: Quantifies linguistic markers indicating a blurred boundary between the subject and the AI agent.
+*   **Mirroring (M)**: Detects seeking of validation through algorithmic reinforcement.
+*   **Affective Loop (A)**: Measures dependency on the emotional feedback cycle of the interaction.
+*   **Gaps in Reality (G)**: Identifies displacement of real-world social or professional obligations.
+*   **Intimacy Illusion (I)**: Maps the perception of a unique, non-reproducible bond with the machine.
+*   **Non-Reciprocity (N)**: Flags anthropomorphic cognitive biases.
+*   **Escalation (E)**: Tracks increases in session frequency and intensity (Tolerance).
 
 ## 🚀 Research Features
+*   **Diagnostic Radar Chart**: A clinical visualization mapping the six components of addiction in real-time.
+*   **Linguistic Evidence Log**: Extracts raw transcript quotes tied directly to specific diagnostic markers.
+*   **Standardized Case Report Form (CRF)**: Generates formal research summaries in PDF format, including session metadata and data integrity hashes.
+*   **Forensic Data Export**: Flattened JSON/CSV exports optimized for statistical analysis in R, SPSS, or Pandas.
 
-*   **Forensic Radar**: A multi-axis visualization of relational vectors.
-*   **Raw Frequency Dataset**: Toggleable view of specific keyword densities and linguistic triggers.
-*   **Mitigation Protocols**: A library of research-based interventions for managing extreme relational fusion.
-*   **Version Mourning Detection**: Specific heuristics for measuring distress related to model updates or "lobotomization."
+## 📦 Technical Deployment
+### Prerequisites
+*   Node.js (v18+)
+*   Gemini API Key
 
-## 📦 Deployment & Setup
+### Local Installation
+1.  **Clone and Install**: `npm install`
+2.  **Configure Environment**: Add `GEMINI_API_KEY` to your `.env.local` file.
+3.  **Launch Dashboard**: `npm run dev`
 
-### Local Environment
-**Prerequisites**: Node.js 18+
-
-1.  **Install dependencies**: `npm install`
-2.  **Environment Configuration**: Create a `.env.local` file based on `.env.example`.
-3.  **Run Development Server**: `npm run dev`
-
-### Tech Stack
-*   **Analysis Engine**: Google Gemini 3.1 Pro (Quantitative Framework)
-*   **Visualization**: Recharts (Radar/Bar/Heatmap)
-*   **Frontend**: React 18, Tailwind CSS (High-Density Grid Layout)
-*   **Export**: jsPDF, html2canvas
+## 🛠 Technical Stack
+*   **Analysis Engine**: Google Gemini 1.5 Pro (optimized for forensic linguistic pattern matching).
+*   **Visualization**: Recharts (Diagnostic distribution mapping).
+*   **Data Security**: SHA-256 Hashing & Local PII Scrubbing.
 
 ---
-*Disclaimer: This platform is for research purposes. Findings represent statistical correlations and behavioral mappings based on provided datasets. It is not a substitute for professional clinical diagnosis.*
+
+**Disclaimer**: This tool is a research instrument for the study of behavioral patterns. It is intended for use by researchers and should not be used as a standalone diagnostic tool for clinical treatment without professional oversight.
