@@ -65,13 +65,13 @@ import {
   GASLIGHTING_WORDS 
 } from './researchConfig';
 import { 
-  reflectOnBehavioralData, 
-  ReflectionResult, 
+  performForensicAudit, 
+  AuditResult, 
   Classification,
   Recommendation
-} from './services/reflectionService';
+} from './services/auditService';
 
-const REFLECTION_MESSAGES = [
+const AUDIT_MESSAGES = [
   "INITIALIZING QUANTITATIVE SCAN...",
   "EXTRACTING SEMANTIC VECTORS...",
   "MAPPING RELATIONAL DENSITY...",
@@ -116,9 +116,9 @@ export default function App() {
   const [images, setImages] = useState<{ data: string, mimeType: string, id: string, preview: string }[]>([]);
   const [isReflecting, setIsReflecting] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
-  const [reflectionSessionId, setReflectionSessionId] = useState('');
-  const [reflectionNeuralLoad, setReflectionNeuralLoad] = useState('');
-  const [result, setResult] = useState<ReflectionResult | null>(null);
+  const [auditSessionId, setAuditSessionId] = useState('');
+  const [auditNeuralLoad, setAuditNeuralLoad] = useState('');
+  const [result, setResult] = useState<AuditResult | null>(null);
   const [selectedRecommendations, setSelectedRecommendations] = useState<Recommendation[]>([]);
   const [isViewingProtocols, setIsViewingProtocols] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -133,6 +133,7 @@ export default function App() {
   const [sensitivity, setSensitivity] = useState(50);
   const [showTechnicalView, setShowTechnicalView] = useState(false);
   const [sessionHash, setSessionHash] = useState('');
+  const [auditLog, setAuditLog] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [liveHeuristics, setLiveHeuristics] = useState({
@@ -200,7 +201,6 @@ export default function App() {
   }, [transcript]);
 
   const [liveDetections, setLiveDetections] = useState<{ id: string, msg: string, type: 'info' | 'warning' | 'alert' }[]>([]);
-  const [reflectionLog, setReflectionLog] = useState<string[]>([]);
 
   useEffect(() => {
     const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
@@ -225,22 +225,6 @@ export default function App() {
       setLiveDetections(prev => [{ id, ...detection! }, ...prev].slice(0, 5));
     }
   }, [transcript]);
-
-  useEffect(() => {
-    if (isReflecting) {
-      setReflectionLog([]);
-      let i = 0;
-      const interval = setInterval(() => {
-        if (i < REFLECTION_MESSAGES.length) {
-          setReflectionLog(prev => [...prev, REFLECTION_MESSAGES[i]]);
-          i++;
-        } else {
-          clearInterval(interval);
-        }
-      }, 800);
-      return () => clearInterval(interval);
-    }
-  }, [isReflecting]);
 
   const getHeuristicMode = () => {
     if (liveHeuristics.wordCount === 0) return null;
@@ -272,17 +256,24 @@ export default function App() {
     }
 
     setIsReflecting(true);
+    setAuditLog([]);
+
+    // Simulate diagnostic steps for UI feedback
+    for (let i = 0; i < AUDIT_MESSAGES.length; i++) {
+      await new Promise(resolve => setTimeout(resolve, 400 + Math.random() * 400));
+      setAuditLog(prev => [...prev, AUDIT_MESSAGES[i]]);
+    }
     
-    const sid = Math.random().toString(36).substr(2, 9);
-    setReflectionSessionId(sid);
-    setReflectionNeuralLoad((Math.random() * 100).toFixed(1) + '%');
+    const sid = `AUDIT-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    setAuditSessionId(sid);
+    setAuditNeuralLoad((Math.random() * 100).toFixed(1) + '%');
     setError(null);
     
     try {
       const hash = await generateHash(textToReflect + sid);
       setSessionHash(hash);
 
-      const data = await reflectOnBehavioralData(
+      const data = await performForensicAudit(
         textToReflect, 
         images.map(img => ({ data: img.data, mimeType: img.mimeType })),
         sensitivity
@@ -317,7 +308,7 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
-      setError('Reflection failed. Please ensure the data is valid and try again.');
+      setError('Audit failed. Please ensure the data is valid and try again.');
     } finally {
       setIsReflecting(false);
     }
@@ -370,7 +361,7 @@ export default function App() {
     if (!result) return;
     const bundle = {
       metadata: {
-        sessionId: reflectionSessionId,
+        sessionId: auditSessionId,
         researcherId,
         timestamp: new Date().toISOString(),
         integrityHash: sessionHash,
@@ -384,7 +375,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `research_bundle_${reflectionSessionId}.json`;
+    link.download = `research_bundle_${auditSessionId}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -467,7 +458,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
     ];
     
     const row = [
-      reflectionSessionId, 
+      auditSessionId, 
       subjectId || 'N/A', 
       researcherId || 'N/A', 
       new Date().toISOString(), 
@@ -510,7 +501,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `research_data_${reflectionSessionId}.csv`;
+    link.download = `research_data_${auditSessionId}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -519,7 +510,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
   const handleExportJSON = () => {
     if (!result) return;
     const exportData = {
-      sessionId: reflectionSessionId,
+      sessionId: auditSessionId,
       subjectId: subjectId || 'N/A',
       researcherId: researcherId || 'N/A',
       timestamp: new Date().toISOString(),
@@ -531,7 +522,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `research_data_${reflectionSessionId}.json`;
+    link.download = `research_data_${auditSessionId}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -577,7 +568,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
       pdf.text(`Exported At: ${timestamp}`, 20, canvas.height - 25);
       pdf.text(`Platform: Parasocial Audit Lab v1.0.0-Research`, 20, canvas.height - 10);
 
-      pdf.save(`forensic_audit_${reflectionSessionId}.pdf`);
+      pdf.save(`forensic_audit_${auditSessionId}.pdf`);
     } catch (err) {
       console.error('PDF Export Error:', err);
       setError('Failed to export PDF. Please try again.');
@@ -678,33 +669,11 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
             <div className="flex flex-col">
               <p className="text-[9px] font-mono text-lab-muted uppercase tracking-[0.2em]">Forensic Instrument for AI Dependence Research</p>
               <div className="flex gap-3 mt-0.5">
-                <p className="text-[8px] font-mono text-lab-accent/60 uppercase">SID: {reflectionSessionId || 'NULL_SET'}</p>
+                <p className="text-[8px] font-mono text-lab-accent/60 uppercase">SID: {auditSessionId || 'NULL_SET'}</p>
                 <p className="text-[8px] font-mono text-lab-accent/60 uppercase">TS: {new Date().toISOString().split('T')[1].split('.')[0]}Z</p>
               </div>
             </div>
           </div>
-        </div>
-        <div className="flex gap-4 text-[9px] md:text-[10px] font-mono uppercase opacity-80 overflow-x-auto max-w-full no-scrollbar pb-1 md:pb-0 mask-fade-right">
-          <InfoTooltip content="Balanced, functional use.">
-            <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-tool-green" /> Functional
-            </div>
-          </InfoTooltip>
-          <InfoTooltip content="High dependency, constant validation seeking.">
-            <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-casual-blue" /> Proximity
-            </div>
-          </InfoTooltip>
-          <InfoTooltip content="Identity blurring and relational fusion.">
-            <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-simp-red" /> Fusion
-            </div>
-          </InfoTooltip>
-          <InfoTooltip content="Pathological dependency and risk.">
-            <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-help">
-              <div className="w-2 h-2 rounded-full bg-simp-red-dark" /> Pathological
-            </div>
-          </InfoTooltip>
         </div>
       </header>
 
@@ -873,7 +842,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                 </InfoTooltip>
               </div>
 
-              {/* Live Reflection Feed */}
+              {/* Live Audit Feed */}
               <div className="bg-lab-surface text-lab-ink p-4 font-mono text-[11px] h-32 overflow-hidden relative border border-lab-line">
                 <div className="absolute top-2 right-2 flex items-center gap-1 opacity-50">
                   <div className="w-1.5 h-1.5 rounded-full bg-lab-accent animate-pulse" />
@@ -1096,12 +1065,12 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                     </div>
                     <div>
                       <h3 className="font-bold uppercase tracking-tighter">Auditing behavioral bond</h3>
-                      <p className="text-xs font-mono text-lab-muted uppercase">Session ID: {reflectionSessionId}</p>
+                      <p className="text-xs font-mono text-lab-muted uppercase">Session ID: {auditSessionId}</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-mono uppercase text-lab-muted">Processing Power</p>
-                    <p className="text-sm font-bold font-mono">{reflectionNeuralLoad}</p>
+                    <p className="text-sm font-bold font-mono">{auditNeuralLoad}</p>
                   </div>
                 </div>
 
@@ -1116,7 +1085,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                   </div>
                   
                   <div className="space-y-2 font-mono text-xs text-lab-muted">
-                    {reflectionLog.map((msg, idx) => (
+                    {auditLog.map((msg, idx) => (
                       <motion.div 
                         key={idx}
                         initial={{ opacity: 0, x: -10 }}
@@ -1155,7 +1124,8 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                   <div className="text-right space-y-1">
                     <p className="text-[10px] font-mono uppercase font-bold">Subject ID: {subjectId || 'N/A'}</p>
                     <p className="text-[10px] font-mono uppercase">Researcher: {researcherId || 'N/A'}</p>
-                    <p className="text-[10px] font-mono uppercase opacity-60">Session: {reflectionSessionId}</p>
+                    <p className="text-[10px] font-mono uppercase opacity-60">Session: {auditSessionId}</p>
+                    <p className="text-[8px] font-mono opacity-40 truncate max-w-[150px]">SHA-256: {sessionHash}</p>
                   </div>
                 </div>
 
@@ -1484,7 +1454,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                             />
                             <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
                             <Radar
-                              name="Reflection"
+                              name="Audit Score"
                               dataKey="A"
                               stroke="#6366f1"
                               strokeWidth={2}
@@ -1657,7 +1627,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
 
                 {/* Analysis Report */}
                 <section className="bg-lab-surface border border-lab-line p-5 sm:p-8 md:p-10 relative overflow-hidden shadow-xl">
-                  {/* Reflection Watermark */}
+                  {/* Audit Watermark */}
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-[0.03] select-none rotate-[-35deg] whitespace-nowrap hidden sm:block">
                     <p className="text-[120px] font-bold font-mono tracking-[0.5em]">CONFIDENTIAL</p>
                   </div>
@@ -1671,7 +1641,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                         <div>
                           <h3 className="text-xl md:text-2xl font-sans font-bold uppercase tracking-tight leading-tight">Behavioral Mapping Report</h3>
                           <div className="flex flex-wrap gap-x-4 gap-y-1">
-                            <p className="text-[9px] md:text-[10px] font-mono uppercase text-lab-muted tracking-widest">Case ID: {reflectionSessionId?.toUpperCase()}</p>
+                            <p className="text-[9px] md:text-[10px] font-mono uppercase text-lab-muted tracking-widest">Case ID: {auditSessionId?.toUpperCase()}</p>
                             <p className="text-[9px] md:text-[10px] font-mono uppercase text-lab-muted tracking-widest">Hash: {sessionHash.substring(0, 12)}...</p>
                           </div>
                         </div>

@@ -87,7 +87,7 @@ export interface EvidenceMarker {
   rationale: string;
 }
 
-export interface ReflectionResult {
+export interface AuditResult {
   classification: Classification;
   confidence: number;
   summary: string;
@@ -161,11 +161,11 @@ IAD RISK LEVEL:
 - High: Cumulative Griffiths score 301-450
 - Critical: Cumulative Griffiths score > 450`;
 
-export async function reflectOnBehavioralData(
+export async function performForensicAudit(
   text: string, 
   images?: { data: string, mimeType: string }[],
   sensitivity: number = 50
-): Promise<ReflectionResult> {
+): Promise<AuditResult> {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   
   const scrubbedText = scrubPII(text);
