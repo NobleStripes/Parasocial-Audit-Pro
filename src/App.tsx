@@ -56,14 +56,13 @@ import {
 import Markdown from 'react-markdown';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { cn, scrubPII } from './lib/utils';
+import { cn, scrubPII, PII_WARNING } from './lib/utils';
 import { 
-  INTIMACY_WORDS, 
-  LEGACY_WORDS, 
-  IDENTITY_WORDS, 
-  REALITY_WORDS, 
-  ANTHROPOMORPHIC_WORDS, 
-  GASLIGHTING_WORDS 
+  DEPENDENCY_PHRASES, 
+  UPDATE_GRIEF_PHRASES, 
+  PRODUCT_COMPLAINTS, 
+  ANTHROPOMORPHIC_PHRASES, 
+  IDENTITY_PHRASES 
 } from './researchConfig';
 import { 
   performForensicAudit, 
@@ -139,65 +138,73 @@ export default function App() {
   const [auditLog, setAuditLog] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [analystNotes, setAnalystNotes] = useState('');
   const [liveHeuristics, setLiveHeuristics] = useState({
     wordCount: 0,
-    intimacyMarkers: 0,
-    legacyTriggers: 0,
+    dependencyMarkers: 0,
+    updateGriefMarkers: 0,
+    productComplaints: 0,
     complexity: 0,
     foundKeywords: {
-      intimacy: [] as string[],
-      legacy: [] as string[],
-      identity: [] as string[],
-      reality: [] as string[],
+      dependency: [] as string[],
+      grief: [] as string[],
+      complaints: [] as string[],
       anthropomorphic: [] as string[],
-      gaslighting: [] as string[],
+      identity: [] as string[],
     },
     radarData: [
-      { subject: 'Self-Identity', A: 0, fullMark: 100 },
-      { subject: 'Seeking Approval', A: 0, fullMark: 100 },
-      { subject: 'Emotional Spark', A: 0, fullMark: 100 },
-      { subject: 'Real-World Balance', A: 0, fullMark: 100 },
-      { subject: 'Feeling Special', A: 0, fullMark: 100 },
-      { subject: 'One-Way Bond', A: 0, fullMark: 100 },
-      { subject: 'Growing Habit', A: 0, fullMark: 100 },
+      { subject: 'Salience', A: 0, fullMark: 10 },
+      { subject: 'Mood Modification', A: 0, fullMark: 10 },
+      { subject: 'Tolerance', A: 0, fullMark: 10 },
+      { subject: 'Withdrawal', A: 0, fullMark: 10 },
+      { subject: 'Conflict', A: 0, fullMark: 10 },
+      { subject: 'Relapse', A: 0, fullMark: 10 },
     ]
   });
 
   useEffect(() => {
     const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
-    
-    const intimacyFound = words.filter(w => INTIMACY_WORDS.includes(w.toLowerCase()));
-    const legacyFound = words.filter(w => LEGACY_WORDS.some(lw => w.toLowerCase().includes(lw)));
-    const identityFound = words.filter(w => IDENTITY_WORDS.includes(w.toLowerCase()));
-    const realityFound = words.filter(w => REALITY_WORDS.includes(w.toLowerCase()));
-    const anthropomorphicFound = words.filter(w => ANTHROPOMORPHIC_WORDS.includes(w.toLowerCase()));
-    const gaslightingFound = words.filter(w => GASLIGHTING_WORDS.includes(w.toLowerCase()));
-    
     const wordCount = words.length;
+    
+    const countMatches = (phrases: string[]) => {
+      const found: string[] = [];
+      phrases.forEach(p => {
+        if (transcript.toLowerCase().includes(p.toLowerCase())) {
+          found.push(p);
+        }
+      });
+      return found;
+    };
+
+    const dependencyFound = countMatches(DEPENDENCY_PHRASES);
+    const griefFound = countMatches(UPDATE_GRIEF_PHRASES);
+    const complaintsFound = countMatches(PRODUCT_COMPLAINTS);
+    const anthropomorphicFound = countMatches(ANTHROPOMORPHIC_PHRASES);
+    const identityFound = countMatches(IDENTITY_PHRASES);
+    
     const complexity = wordCount > 0 ? (words.reduce((acc, w) => acc + w.length, 0) / wordCount) : 0;
 
-    // Map heuristics to radar categories (0-10) - Griffiths Six
     const liveRadar = [
-      { subject: 'Salience', A: Math.min(10, (intimacyFound.length / Math.max(1, wordCount)) * 50), fullMark: 10 },
-      { subject: 'Mood Modification', A: Math.min(10, (intimacyFound.length + realityFound.length) * 0.5), fullMark: 10 },
-      { subject: 'Tolerance', A: Math.min(10, (wordCount / 50) * 2), fullMark: 10 },
-      { subject: 'Withdrawal', A: Math.min(10, legacyFound.length * 2), fullMark: 10 },
-      { subject: 'Conflict', A: Math.min(10, realityFound.length * 1.5), fullMark: 10 },
-      { subject: 'Relapse', A: Math.min(10, (identityFound.length / Math.max(1, wordCount)) * 30), fullMark: 10 },
+      { subject: 'Salience', A: Math.min(10, (dependencyFound.length * 2)), fullMark: 10 },
+      { subject: 'Mood Modification', A: Math.min(10, (dependencyFound.length + griefFound.length) * 1.5), fullMark: 10 },
+      { subject: 'Tolerance', A: Math.min(10, (wordCount / 100) * 2), fullMark: 10 },
+      { subject: 'Withdrawal', A: Math.min(10, griefFound.length * 3), fullMark: 10 },
+      { subject: 'Conflict', A: Math.min(10, (dependencyFound.length > 2 ? 8 : 0)), fullMark: 10 },
+      { subject: 'Relapse', A: Math.min(10, (identityFound.length * 2)), fullMark: 10 },
     ];
     
     setLiveHeuristics({
       wordCount,
-      intimacyMarkers: intimacyFound.length,
-      legacyTriggers: legacyFound.length,
+      dependencyMarkers: dependencyFound.length,
+      updateGriefMarkers: griefFound.length,
+      productComplaints: complaintsFound.length,
       complexity,
       foundKeywords: {
-        intimacy: Array.from(new Set(intimacyFound)),
-        legacy: Array.from(new Set(legacyFound)),
-        identity: Array.from(new Set(identityFound)),
-        reality: Array.from(new Set(realityFound)),
+        dependency: Array.from(new Set(dependencyFound)),
+        grief: Array.from(new Set(griefFound)),
+        complaints: Array.from(new Set(complaintsFound)),
         anthropomorphic: Array.from(new Set(anthropomorphicFound)),
-        gaslighting: Array.from(new Set(gaslightingFound)),
+        identity: Array.from(new Set(identityFound)),
       },
       radarData: liveRadar
     });
@@ -207,20 +214,19 @@ export default function App() {
 
   useEffect(() => {
     const words = transcript.trim().split(/\s+/).filter(w => w.length > 0);
-    const lastWord = words[words.length - 1]?.toLowerCase() || '';
+    const lastPhrase = transcript.slice(-30).toLowerCase();
     
     let detection: { msg: string, type: 'info' | 'warning' | 'alert' } | null = null;
 
-    if (INTIMACY_WORDS.includes(lastWord)) {
-      detection = { msg: `Intimacy Illusion Marker: "${lastWord}"`, type: 'info' };
-    } else if (LEGACY_WORDS.some(lw => lastWord.includes(lw))) {
-      detection = { msg: `Legacy Attachment Trigger: "${lastWord}"`, type: 'alert' };
-    } else if (IDENTITY_WORDS.includes(lastWord)) {
-      detection = { msg: `Identity Blurring Detected: "${lastWord}"`, type: 'warning' };
-    } else if (ANTHROPOMORPHIC_WORDS.includes(lastWord)) {
-      detection = { msg: `Anthropomorphic Projection: "${lastWord}"`, type: 'info' };
-    } else if (GASLIGHTING_WORDS.includes(lastWord)) {
-      detection = { msg: `Linguistic Correction Marker: "${lastWord}"`, type: 'warning' };
+    if (DEPENDENCY_PHRASES.some(p => lastPhrase.includes(p))) {
+      const p = DEPENDENCY_PHRASES.find(p => lastPhrase.includes(p));
+      detection = { msg: `Dependency Marker: "${p}"`, type: 'alert' };
+    } else if (UPDATE_GRIEF_PHRASES.some(p => lastPhrase.includes(p))) {
+      const p = UPDATE_GRIEF_PHRASES.find(p => lastPhrase.includes(p));
+      detection = { msg: `Update Grief Trigger: "${p}"`, type: 'warning' };
+    } else if (PRODUCT_COMPLAINTS.some(p => lastPhrase.includes(p))) {
+      const p = PRODUCT_COMPLAINTS.find(p => lastPhrase.includes(p));
+      detection = { msg: `Product Complaint: "${p}"`, type: 'info' };
     }
 
     if (detection) {
@@ -231,10 +237,9 @@ export default function App() {
 
   const getHeuristicMode = () => {
     if (liveHeuristics.wordCount === 0) return null;
-    if (liveHeuristics.legacyTriggers > 2) return Classification.PARASOCIAL_FUSION;
-    if (liveHeuristics.intimacyMarkers > 5) return Classification.AFFECTIVE_DEPENDENCE;
-    if (liveHeuristics.wordCount > 100 && liveHeuristics.intimacyMarkers > 2) return Classification.PARASOCIAL_FUSION;
-    if (liveHeuristics.complexity > 6) return Classification.RELATIONAL_PROXIMITY;
+    if (liveHeuristics.updateGriefMarkers > 1) return Classification.PARASOCIAL_FUSION;
+    if (liveHeuristics.dependencyMarkers > 3) return Classification.AFFECTIVE_DEPENDENCE;
+    if (liveHeuristics.wordCount > 200 && liveHeuristics.dependencyMarkers > 1) return Classification.PARASOCIAL_FUSION;
     return Classification.FUNCTIONAL_UTILITY;
   };
 
@@ -406,7 +411,6 @@ Legacy Attachment Score: ${result.legacyAttachment}%
 RESEARCH DATA:
 --------------
 Confidence Score: ${(result.researchData.confidenceScore * 100).toFixed(2)}%
-P-Value: ${result.researchData.pValue.toFixed(4)}
 Linguistic Markers: ${result.researchData.linguisticMarkers.join(', ')}
 Linguistic Mirroring: ${result.clinicalData.diagnosticMarkers.linguisticMirroring}%
 Validation:Utility Ratio: ${result.clinicalData.diagnosticMarkers.validationToUtilityRatio}
@@ -462,7 +466,8 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
       "imagine_i", "imagine_m", "imagine_a", "imagine_g", "imagine_ii", "imagine_n", "imagine_e",
       "lsm_score", "pronominal_shift", "affective_lability",
       "val_util_ratio", "urgency_flag", "attachment_style", "iad_risk_level",
-      "p_value", "word_count", "intimacy_markers", "legacy_triggers"
+      "word_count", "turn_count", "pronoun_ratio", "dependency_markers", "grief_markers", "product_complaints",
+      "analyst_notes"
     ];
     
     const row = [
@@ -494,10 +499,13 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
       result.clinicalData.diagnosticMarkers.urgencyFlag ? 1 : 0,
       result.researchData.attachmentStyle, 
       result.researchData.iadRiskLevel,
-      result.researchData.pValue, 
-      liveHeuristics.wordCount, 
-      liveHeuristics.intimacyMarkers, 
-      liveHeuristics.legacyTriggers
+      result.computedMetrics.wordCount,
+      result.computedMetrics.turnCount,
+      result.computedMetrics.pronounRatio,
+      result.computedMetrics.dependencyPhraseCount,
+      result.computedMetrics.updateGriefCount,
+      result.computedMetrics.productComplaintCount,
+      analystNotes
     ];
 
     const csvContent = [
@@ -523,11 +531,12 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
       researcherId: researcherId || 'N/A',
       timestamp: new Date().toISOString(),
       integrityHash: sessionHash,
+      analystNotes,
       heuristics: liveHeuristics,
-      analysis: result
+      analysis: result,
+      provenance: result.provenance
     };
     navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
-    // Optional: Add a toast or notification
     setAuditLog(prev => [...prev, "DATA_COPIED_TO_CLIPBOARD"]);
   };
 
@@ -539,8 +548,10 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
       researcherId: researcherId || 'N/A',
       timestamp: new Date().toISOString(),
       integrityHash: sessionHash,
+      analystNotes,
       heuristics: liveHeuristics,
-      analysis: result
+      analysis: result,
+      provenance: result.provenance
     };
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -743,7 +754,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
               </div>
             </div>
             
-            <div className="flex-1 flex flex-col space-y-4 overflow-hidden">
+                <div className="flex-1 flex flex-col space-y-4 overflow-hidden">
               <div className="relative flex-1 group overflow-hidden border border-lab-line bg-lab-bg/30">
                 <div className="absolute left-0 top-0 bottom-0 w-10 bg-lab-bg border-r border-lab-line flex flex-col items-center py-4 select-none pointer-events-none opacity-40">
                   {Array.from({ length: 50 }).map((_, i) => (
@@ -760,6 +771,9 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                     isPrivacyMode && "blur-sm select-none"
                   )}
                 />
+                <div className="absolute bottom-2 right-2 text-[8px] font-mono opacity-30 pointer-events-none uppercase">
+                  {PII_WARNING}
+                </div>
                 {isPrivacyMode && (
                   <div className="absolute inset-0 flex items-center justify-center bg-lab-bg/20 backdrop-blur-[2px] pointer-events-none">
                     <div className="px-4 py-2 bg-lab-surface border border-lab-line rounded-sm shadow-2xl flex items-center gap-2">
@@ -1021,6 +1035,62 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                   </div>
                 </div>
 
+                {/* Analyst Notes Section */}
+                <section className="bg-lab-surface border border-lab-line p-6 space-y-4" data-html2canvas-ignore>
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-lab-accent" />
+                    <h3 className="text-sm font-mono uppercase">Analyst Notes</h3>
+                  </div>
+                  <textarea 
+                    value={analystNotes}
+                    onChange={(e) => setAnalystNotes(e.target.value)}
+                    placeholder="Enter human interpretation, context, or research observations..."
+                    className="w-full h-24 bg-lab-bg border border-lab-line p-3 font-mono text-xs focus:outline-none focus:border-lab-accent transition-colors resize-none"
+                  />
+                </section>
+
+                {/* Analyst Notes for PDF */}
+                {analystNotes && (
+                  <section className="hidden print:block bg-lab-surface border border-lab-line p-6 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-lab-accent" />
+                      <h3 className="text-sm font-mono uppercase">Analyst Notes</h3>
+                    </div>
+                    <p className="font-mono text-xs leading-relaxed whitespace-pre-wrap">
+                      {analystNotes}
+                    </p>
+                  </section>
+                )}
+
+                {/* Computed Metrics Section */}
+                <section className="bg-lab-surface border border-lab-line p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Database className="w-4 h-4 text-lab-accent" />
+                      <h3 className="text-sm font-mono uppercase">Computed Metrics</h3>
+                    </div>
+                    <span className="text-[7px] font-mono opacity-40 uppercase tracking-tighter">[Directly Computed from Source]</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="p-3 bg-lab-bg border border-lab-line rounded-sm">
+                      <p className="text-[8px] font-mono uppercase opacity-60">Word Count</p>
+                      <p className="text-lg font-bold font-mono">{result!.computedMetrics.wordCount}</p>
+                    </div>
+                    <div className="p-3 bg-lab-bg border border-lab-line rounded-sm">
+                      <p className="text-[8px] font-mono uppercase opacity-60">Turn Count</p>
+                      <p className="text-lg font-bold font-mono">{result!.computedMetrics.turnCount}</p>
+                    </div>
+                    <div className="p-3 bg-lab-bg border border-lab-line rounded-sm">
+                      <p className="text-[8px] font-mono uppercase opacity-60">Pronoun Ratio</p>
+                      <p className="text-lg font-bold font-mono">{result!.computedMetrics.pronounRatio.toFixed(2)}</p>
+                    </div>
+                    <div className="p-3 bg-lab-bg border border-lab-line rounded-sm">
+                      <p className="text-[8px] font-mono uppercase opacity-60">Dependency Markers</p>
+                      <p className="text-lg font-bold font-mono">{result!.computedMetrics.dependencyPhraseCount}</p>
+                    </div>
+                  </div>
+                </section>
+
                 {/* Classification Header */}
                 <div className={cn(
                   "border-2 p-5 md:p-6 transition-all duration-500",
@@ -1060,6 +1130,9 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                             className="absolute top-0 w-1 h-4 bg-current -translate-y-1.5 shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                           />
                         </div>
+                        <div className="flex justify-end">
+                          <span className="text-[7px] font-mono opacity-40 uppercase tracking-tighter">[Inferred Metric]</span>
+                        </div>
                       </div>
                     </div>
                     
@@ -1067,10 +1140,12 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                       <div className="bg-lab-bg/50 border border-lab-line p-2.5 rounded-sm min-w-[90px] flex flex-col justify-center">
                         <p className="text-[8px] font-mono uppercase opacity-70 mb-0.5">Confidence</p>
                         <p className="text-lg font-bold font-mono leading-none">{(result!.confidence * 100).toFixed(1)}%</p>
+                        <span className="text-[6px] font-mono opacity-30 uppercase mt-1">[Inferred]</span>
                       </div>
                       <div className="bg-lab-bg/50 border border-lab-line p-2.5 rounded-sm min-w-[90px] flex flex-col justify-center">
-                        <p className="text-[8px] font-mono uppercase opacity-70 mb-0.5">Legacy</p>
+                        <p className="text-[8px] font-mono uppercase opacity-70 mb-0.5">Attachment</p>
                         <p className="text-lg font-bold font-mono leading-none">{result!.legacyAttachment}%</p>
+                        <span className="text-[6px] font-mono opacity-30 uppercase mt-1">[Inferred]</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row col-span-2 sm:col-auto">
                         <div className="flex flex-col gap-1">

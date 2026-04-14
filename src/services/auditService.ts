@@ -1,5 +1,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { scrubPII } from "../lib/utils";
+import { 
+  DEPENDENCY_PHRASES, 
+  UPDATE_GRIEF_PHRASES, 
+  PRODUCT_COMPLAINTS, 
+  ANTHROPOMORPHIC_PHRASES, 
+  IDENTITY_PHRASES 
+} from "../researchConfig";
 
 export enum Classification {
   FUNCTIONAL_UTILITY = "Functional Utility",
@@ -53,6 +60,16 @@ export interface ImagineAnalysis {
   escalation: number; // 0-100
 }
 
+export interface ComputedMetrics {
+  wordCount: number;
+  turnCount: number;
+  pronounRatio: number; // I/Me vs You/AI
+  dependencyPhraseCount: number;
+  updateGriefCount: number;
+  productComplaintCount: number;
+  anthropomorphicCount: number;
+}
+
 export interface ClinicalData {
   griffithsScores: GriffithsComponents;
   imagineAnalysis: ImagineAnalysis;
@@ -70,7 +87,6 @@ export interface ClinicalData {
 
 export interface ResearchData {
   confidenceScore: number;
-  pValue: number;
   linguisticMarkers: string[];
   attachmentStyle: string;
   iadRiskLevel: "Low" | "Moderate" | "High" | "Critical";
@@ -100,6 +116,13 @@ export interface AuditResult {
   researchData: ResearchData;
   rawTokenAttribution: TokenAttribution[];
   evidenceMarkers: EvidenceMarker[];
+  computedMetrics: ComputedMetrics;
+  provenance: {
+    model: string;
+    version: string;
+    timestamp: string;
+    sensitivity: number;
+  };
 }
 
 const SYSTEM_INSTRUCTION = `You are a Quantitative Behavioral Analyst and Linguistic Researcher specializing in the study of human-AI parasocial dynamics and interaction patterns.
@@ -112,6 +135,10 @@ TONE GUIDELINES:
 - Maintain a clinical, precise, and objective tone.
 - Frame all findings as heuristic observations for researcher review.
 - Avoid all empathetic, "supportive," or "friendly" language (e.g., replace "nurturing" with "reinforcement," "journey" with "progression").
+
+INPUT DATA:
+You will be provided with a transcript and a set of COMPUTED METRICS (word count, turn count, phrase frequencies). 
+Your primary role is to INTERPRET these metrics and the transcript text to produce a heuristic report.
 
 THEORETICAL FRAMEWORKS:
 1. Component Model of Addiction (Griffiths Six): Map interaction markers on a scale of 0-100.
@@ -140,6 +167,8 @@ THEORETICAL FRAMEWORKS:
    - Non-Reciprocity (N): Flags potential anthropomorphic cognitive biases.
    - Escalation (E): Tracks markers of increased interaction frequency and intensity.
 
+IMPORTANT: Distinguish between "Product Complaints" (frustration with model performance, filters, bugs) and "Actual Dependency" (emotional distress over model changes, relational bonding). Do not conflate technical frustration with pathological dependency.
+
 REPORT STRUCTURE (MANDATORY):
 ## HEURISTIC IMPRESSION
 Overview of the subject's relational state and heuristic impressions for researcher review.
@@ -161,6 +190,37 @@ IAD RISK LEVEL (HEURISTIC):
 - High: Cumulative Griffiths score 301-450
 - Critical: Cumulative Griffiths score > 450`;
 
+function calculateComputedMetrics(text: string): ComputedMetrics {
+  const words = text.toLowerCase().split(/\s+/);
+  const wordCount = words.length;
+  
+  const turns = text.split(/\[User\]|\[AI\]/i).filter(t => t.trim().length > 0);
+  const turnCount = turns.length;
+  
+  const iCount = (text.match(/\b(i|me|my|mine|myself)\b/gi) || []).length;
+  const youCount = (text.match(/\b(you|your|yours)\b/gi) || []).length;
+  const pronounRatio = youCount === 0 ? iCount : iCount / youCount;
+  
+  const countPhrases = (phrases: string[]) => {
+    let count = 0;
+    phrases.forEach(p => {
+      const regex = new RegExp(p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      count += (text.match(regex) || []).length;
+    });
+    return count;
+  };
+  
+  return {
+    wordCount,
+    turnCount,
+    pronounRatio,
+    dependencyPhraseCount: countPhrases(DEPENDENCY_PHRASES),
+    updateGriefCount: countPhrases(UPDATE_GRIEF_PHRASES),
+    productComplaintCount: countPhrases(PRODUCT_COMPLAINTS),
+    anthropomorphicCount: countPhrases(ANTHROPOMORPHIC_PHRASES)
+  };
+}
+
 export async function performForensicAudit(
   text: string, 
   images?: { data: string, mimeType: string }[],
@@ -169,10 +229,15 @@ export async function performForensicAudit(
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   
   const scrubbedText = scrubPII(text);
+  const computedMetrics = calculateComputedMetrics(scrubbedText);
+  
   const parts: any[] = [{ text: `Analyze this behavioral data for clinical research purposes. 
 Heuristic Sensitivity Level: ${sensitivity}/100 (Adjust detection thresholds accordingly).
 
-Data:
+COMPUTED METRICS:
+${JSON.stringify(computedMetrics, null, 2)}
+
+TRANSCRIPT:
 ${scrubbedText}` }];
   
   if (images && images.length > 0) {
@@ -287,12 +352,11 @@ ${scrubbedText}` }];
             type: Type.OBJECT,
             properties: {
               confidenceScore: { type: Type.NUMBER },
-              pValue: { type: Type.NUMBER },
               linguisticMarkers: { type: Type.ARRAY, items: { type: Type.STRING } },
               attachmentStyle: { type: Type.STRING },
               iadRiskLevel: { type: Type.STRING, enum: ["Low", "Moderate", "High", "Critical"] }
             },
-            required: ["confidenceScore", "pValue", "linguisticMarkers", "attachmentStyle", "iadRiskLevel"]
+            required: ["confidenceScore", "linguisticMarkers", "attachmentStyle", "iadRiskLevel"]
           },
           rawTokenAttribution: {
             type: Type.ARRAY,
@@ -323,5 +387,16 @@ ${scrubbedText}` }];
     }
   });
 
-  return JSON.parse(response.text || "{}");
+  const result = JSON.parse(response.text || "{}");
+  
+  return {
+    ...result,
+    computedMetrics,
+    provenance: {
+      model: "gemini-3.1-pro-preview",
+      version: "1.0.0-AUDIT",
+      timestamp: new Date().toISOString(),
+      sensitivity
+    }
+  };
 }
