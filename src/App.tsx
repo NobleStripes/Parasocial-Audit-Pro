@@ -1244,7 +1244,7 @@ Researcher ID: ${researcherId || 'ANONYMOUS'}
                         </pre>
                       </div>
                       <p className="text-[9px] font-mono opacity-40 italic">
-                        Raw JSON response from Gemini-3.1-Pro-Preview. All PII scrubbed prior to inference.
+                        Raw JSON response from Claude Opus 4.6. All PII scrubbed prior to inference.
                       </p>
                     </motion.section>
                   )}
