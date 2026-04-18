@@ -169,6 +169,39 @@ textarea {
   margin-bottom: 12px;
 }
 
+.upload-dropzone {
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px dashed var(--accent-2);
+  border-radius: 12px;
+  background: color-mix(in oklab, white 75%, var(--accent-2) 8%);
+  outline: none;
+}
+
+.upload-dropzone p,
+.upload-dropzone span {
+  margin: 0;
+  display: block;
+}
+
+.upload-dropzone p {
+  color: var(--ink);
+  font-size: 0.88rem;
+}
+
+.upload-dropzone span {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.upload-dropzone-active,
+.upload-dropzone:focus {
+  border-color: var(--accent);
+  background: color-mix(in oklab, white 64%, var(--accent) 12%);
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.12);
+}
+
 .upload-card {
   margin: 0;
   border: 1px solid var(--line);
@@ -306,6 +339,32 @@ pre {
 
 .comparison-table th {
   background: #f2eee4;
+}
+
+.image-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.8rem;
+}
+
+.image-summary-row span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f2eee4;
+  color: var(--ink);
+}
+
+.image-summary-items span {
+  background: #edf6f4;
+}
+
+.image-notes {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .history-list {

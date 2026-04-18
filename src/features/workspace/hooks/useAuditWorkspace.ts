@@ -32,6 +32,10 @@ function readFileAsDataUrl(file: File): Promise<string> {
   });
 }
 
+function collectImageFiles(files: Iterable<File>): File[] {
+  return Array.from(files).filter((file) => file.type.startsWith("image/"));
+}
+
 export function useAuditWorkspace() {
   const [transcript, setTranscript] = useState(EMPTY_TEXT);
   const [researcherId, setResearcherId] = useState("researcher-01");
@@ -87,10 +91,10 @@ export function useAuditWorkspace() {
 
   const heatmapData = useMemo(() => result?.heatmap || [], [result]);
 
-  async function addImages(files: FileList | null) {
-    if (!files || files.length === 0) return;
+  async function addImagesFromFiles(files: File[]) {
+    if (files.length === 0) return;
 
-    const nextFiles = Array.from(files);
+    const nextFiles = files;
 
     if (uploadedImages.length + nextFiles.length > MAX_IMAGE_COUNT) {
       setError(`You can upload up to ${MAX_IMAGE_COUNT} images per audit.`);
@@ -131,6 +135,26 @@ export function useAuditWorkspace() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load selected images.");
     }
+  }
+
+  async function addImages(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    await addImagesFromFiles(Array.from(files));
+  }
+
+  async function addDroppedImages(files: FileList | null) {
+    if (!files) return;
+    await addImagesFromFiles(collectImageFiles(files));
+  }
+
+  async function addClipboardImages(items: DataTransferItemList | null) {
+    if (!items) return;
+    const clipboardFiles = collectImageFiles(
+      Array.from(items)
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => Boolean(file))
+    );
+    await addImagesFromFiles(clipboardFiles);
   }
 
   function removeImage(imageId: string) {
@@ -238,6 +262,8 @@ export function useAuditWorkspace() {
     toggleCalibrationProfile,
     uploadedImages,
     addImages,
+    addDroppedImages,
+    addClipboardImages,
     removeImage,
     comparisonResults,
     error,

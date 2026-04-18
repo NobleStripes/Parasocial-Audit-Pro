@@ -4,6 +4,12 @@ interface HistoryPanelProps {
   history: Array<Record<string, unknown>>;
 }
 
+function getImageCount(item: Record<string, unknown>): number {
+  const payload = item.data as Record<string, unknown> | undefined;
+  const imageSummary = payload?.imageSummary as { count?: number } | undefined;
+  return typeof imageSummary?.count === "number" ? imageSummary.count : 0;
+}
+
 export function HistoryPanel({ history }: HistoryPanelProps) {
   return (
     <section className="panel history-panel">
@@ -20,6 +26,7 @@ export function HistoryPanel({ history }: HistoryPanelProps) {
               <div>
                 <strong>{String(item.timestamp || "unknown")}</strong>
                 <p>{String(item.notes || "No notes")}</p>
+                <p>{getImageCount(item)} image attachments</p>
               </div>
               <span>{String(item.dependencyScore || 0)}</span>
             </li>

@@ -57,6 +57,27 @@ export function OutputPanel({ result, griffithsData, heatmapData, comparisonResu
 
           <p className="summary">{result.summary}</p>
 
+          <article>
+            <h3>Image Context</h3>
+            <div className="image-summary-row">
+              <span>{result.imageSummary.count} uploaded</span>
+              <span>{result.imageSummary.screenshotCount} screenshots</span>
+              <span>{result.imageSummary.photoCount} photos</span>
+            </div>
+            <ul className="image-notes">
+              {result.imageSummary.notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+            {result.imageSummary.items.length > 0 && (
+              <div className="image-summary-row image-summary-items">
+                {result.imageSummary.items.map((item) => (
+                  <span key={`${item.name}-${item.size}`}>{item.name}</span>
+                ))}
+              </div>
+            )}
+          </article>
+
           <div className="chart-grid">
             <article>
               <h3>Griffiths Radar</h3>

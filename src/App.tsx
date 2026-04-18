@@ -23,6 +23,8 @@ export default function App() {
     toggleCalibrationProfile,
     uploadedImages,
     addImages,
+    addDroppedImages,
+    addClipboardImages,
     removeImage,
     comparisonResults,
     error,
@@ -65,6 +67,8 @@ export default function App() {
           toggleCalibrationProfile={toggleCalibrationProfile}
           uploadedImages={uploadedImages}
           onAddImages={addImages}
+          onDropImages={addDroppedImages}
+          onPasteImages={addClipboardImages}
           onRemoveImage={removeImage}
           error={error}
           isRunning={isRunning}

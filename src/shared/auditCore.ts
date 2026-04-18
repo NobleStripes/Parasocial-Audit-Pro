@@ -104,6 +104,19 @@ export interface EvidenceMarker {
   rationale: string;
 }
 
+export interface ImageSummary {
+  count: number;
+  screenshotCount: number;
+  photoCount: number;
+  totalBytes: number;
+  items: Array<{
+    name: string;
+    mimeType: string;
+    size: number;
+  }>;
+  notes: string[];
+}
+
 export interface AuditResult {
   classification: Classification;
   confidence: number;
@@ -118,11 +131,14 @@ export interface AuditResult {
   rawTokenAttribution: TokenAttribution[];
   evidenceMarkers: EvidenceMarker[];
   computedMetrics: ComputedMetrics;
+  imageSummary: ImageSummary;
   provenance: {
     model: string;
     version: string;
     timestamp: string;
     sensitivity: number;
+    imageCount?: number;
+    totalImageBytes?: number;
     thresholdProfileId?: string;
     thresholdProfileVersion?: string;
     researchModelId?: string;
@@ -133,6 +149,8 @@ export interface AuditResult {
 export interface AuditImage {
   data: string;
   mimeType: string;
+  name?: string;
+  size?: number;
 }
 
 export interface AuditRequest {
@@ -145,6 +163,42 @@ export interface AuditRequest {
 
 const APP_VERSION = "2.0.0";
 const LOCAL_MODEL_NAME = "local-heuristic-v2";
+
+function summarizeImages(images: AuditImage[]): ImageSummary {
+  const items = images.map((image, index) => ({
+    name: image.name || `attachment-${index + 1}`,
+    mimeType: image.mimeType,
+    size: image.size || 0,
+  }));
+
+  const screenshotCount = items.filter(
+    (item) => item.name.toLowerCase().includes("screenshot") || item.mimeType === "image/png"
+  ).length;
+  const totalBytes = items.reduce((sum, item) => sum + item.size, 0);
+  const photoCount = Math.max(0, items.length - screenshotCount);
+  const notes: string[] = [];
+
+  if (items.length === 0) {
+    notes.push("No images supplied with this audit.");
+  } else {
+    notes.push(`${items.length} image attachment${items.length === 1 ? "" : "s"} included in the audit context.`);
+    if (screenshotCount > 0) {
+      notes.push(`${screenshotCount} attachment${screenshotCount === 1 ? " was" : "s were"} identified as likely screenshots.`);
+    }
+    if (photoCount > 0) {
+      notes.push(`${photoCount} attachment${photoCount === 1 ? " appears" : "s appear"} to be general photos.`);
+    }
+  }
+
+  return {
+    count: items.length,
+    screenshotCount,
+    photoCount,
+    totalBytes,
+    items,
+    notes,
+  };
+}
 
 function clamp(value: number, min = 0, max = 100): number {
   return Math.max(min, Math.min(max, Math.round(value)));
@@ -260,6 +314,7 @@ export function runLocalAudit({
 }: AuditRequest): AuditResult {
   const profile = getThresholdProfile(thresholdProfileId);
   const researchModel = requestResearchModel || getPsychiatricResearchModel();
+  const imageSummary = summarizeImages(images);
   const rw = researchModel.weights;
   const normalizedSensitivity = clamp(sensitivity, 0, 100);
   const scrubbedText = scrubPII(text);
@@ -447,11 +502,14 @@ export function runLocalAudit({
     ],
     evidenceMarkers,
     computedMetrics,
+    imageSummary,
     provenance: {
       model: LOCAL_MODEL_NAME,
       version: APP_VERSION,
       timestamp: new Date().toISOString(),
       sensitivity: normalizedSensitivity,
+      imageCount: imageSummary.count,
+      totalImageBytes: imageSummary.totalBytes,
       thresholdProfileId: profile.id,
       thresholdProfileVersion: profile.version,
       researchModelId: researchModel.id,

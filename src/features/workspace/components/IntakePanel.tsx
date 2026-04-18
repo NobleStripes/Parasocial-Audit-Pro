@@ -1,3 +1,4 @@
+import { useState, type ClipboardEvent, type DragEvent } from "react";
 import { AlertCircle, FileUp, FlaskConical, Save, Send } from "lucide-react";
 import type { ThresholdProfile } from "../../../shared/thresholdProfiles";
 
@@ -18,6 +19,8 @@ interface IntakePanelProps {
   toggleCalibrationProfile: (profileId: string) => void;
   uploadedImages: Array<{ id: string; name: string; size: number; data: string }>;
   onAddImages: (files: FileList | null) => void;
+  onDropImages: (files: FileList | null) => void;
+  onPasteImages: (items: DataTransferItemList | null) => void;
   onRemoveImage: (imageId: string) => void;
   error: string | null;
   isRunning: boolean;
@@ -46,6 +49,8 @@ export function IntakePanel({
   toggleCalibrationProfile,
   uploadedImages,
   onAddImages,
+  onDropImages,
+  onPasteImages,
   onRemoveImage,
   error,
   isRunning,
@@ -56,6 +61,18 @@ export function IntakePanel({
   onRunCalibration,
   onSaveSession,
 }: IntakePanelProps) {
+  const [isDragActive, setIsDragActive] = useState(false);
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsDragActive(false);
+    void onDropImages(event.dataTransfer.files);
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
+    void onPasteImages(event.clipboardData.items);
+  }
+
   return (
     <section className="panel input-panel">
       <h2>
@@ -100,6 +117,29 @@ export function IntakePanel({
           }}
         />
       </label>
+
+      <div
+        className={`upload-dropzone${isDragActive ? " upload-dropzone-active" : ""}`}
+        tabIndex={0}
+        onDragEnter={(event) => {
+          event.preventDefault();
+          setIsDragActive(true);
+        }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setIsDragActive(true);
+        }}
+        onDragLeave={(event) => {
+          event.preventDefault();
+          if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+          setIsDragActive(false);
+        }}
+        onDrop={handleDrop}
+        onPaste={handlePaste}
+      >
+        <p>Drop screenshots here or focus this panel and paste from the clipboard.</p>
+        <span>PNG, JPEG, WebP, and other browser-supported image formats are accepted.</span>
+      </div>
 
       {uploadedImages.length > 0 && (
         <div className="upload-grid" aria-label="Uploaded screenshots and photos">

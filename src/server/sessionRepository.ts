@@ -48,6 +48,7 @@ export class SessionRepository {
       : {
           classification: (input.data as any)?.classification,
           confidence: (input.data as any)?.confidence,
+          imageSummary: (input.data as any)?.imageSummary,
           researchData: (input.data as any)?.researchData,
           clinicalData: {
             diagnosticMarkers: (input.data as any)?.clinicalData?.diagnosticMarkers,
@@ -112,6 +113,8 @@ export class SessionRepository {
         notes: row.notes,
         classification: payload.classification,
         confidence: payload.confidence,
+        imageCount: payload.imageSummary?.count || 0,
+        screenshotCount: payload.imageSummary?.screenshotCount || 0,
         iadRiskLevel: payload.researchData?.iadRiskLevel,
         urgencyFlag: payload.clinicalData?.diagnosticMarkers?.urgencyFlag ? 1 : 0,
         imagineIdentity: imagine.identity,
