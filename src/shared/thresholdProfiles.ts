@@ -25,6 +25,7 @@ export interface ThresholdProfile {
     moderate: number;
   };
   urgencyGriefMarkerThreshold: number;
+  symptomDetectionThreshold: number;
   evidenceLimit: number;
   confidence: {
     base: number;
@@ -78,6 +79,7 @@ const DEFAULT_PROFILE: ThresholdProfile = {
     moderate: 150,
   },
   urgencyGriefMarkerThreshold: 2,
+  symptomDetectionThreshold: 35,
   evidenceLimit: 8,
   confidence: {
     base: 45,
@@ -123,6 +125,7 @@ const CONSERVATIVE_PROFILE: ThresholdProfile = {
     moderate: 180,
   },
   urgencyGriefMarkerThreshold: 3,
+  symptomDetectionThreshold: 45,
   confidence: {
     ...DEFAULT_PROFILE.confidence,
     base: 40,
@@ -156,6 +159,7 @@ const SENSITIVE_PROFILE: ThresholdProfile = {
     moderate: 130,
   },
   urgencyGriefMarkerThreshold: 2,
+  symptomDetectionThreshold: 30,
   confidence: {
     ...DEFAULT_PROFILE.confidence,
     base: 48,

@@ -296,6 +296,7 @@ function buildSymptomSignals(input: {
   griefMarkers: string[];
   computedMetrics: ComputedMetrics;
   sensitivityFactor: number;
+  detectionThreshold: number;
 }): SymptomSignal[] {
   const {
     dependencyMarkers,
@@ -304,6 +305,7 @@ function buildSymptomSignals(input: {
     griefMarkers,
     computedMetrics,
     sensitivityFactor,
+    detectionThreshold,
   } = input;
 
   const mk = (key: string, label: string, rawScore: number, evidence: string[]): SymptomSignal => {
@@ -313,7 +315,7 @@ function buildSymptomSignals(input: {
       label,
       score,
       level: toSymptomLevel(score),
-      detected: score >= 35,
+      detected: score >= detectionThreshold,
       evidence,
     };
   };
@@ -501,6 +503,7 @@ export function runLocalAudit({
     griefMarkers,
     computedMetrics,
     sensitivityFactor,
+    detectionThreshold: profile.symptomDetectionThreshold,
   });
 
   const linguisticMarkers = [
