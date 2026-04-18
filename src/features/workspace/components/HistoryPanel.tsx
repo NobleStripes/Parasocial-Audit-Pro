@@ -10,6 +10,17 @@ function getImageCount(item: Record<string, unknown>): number {
   return typeof imageSummary?.count === "number" ? imageSummary.count : 0;
 }
 
+function getClassificationLabel(item: Record<string, unknown>): string {
+  const payload = item.data as Record<string, unknown> | undefined;
+  const label = payload?.classificationLabel;
+  const fallback = payload?.classification;
+  return typeof label === "string" && label.trim().length > 0
+    ? label
+    : typeof fallback === "string"
+      ? fallback
+      : "Unclassified";
+}
+
 export function HistoryPanel({ history }: HistoryPanelProps) {
   return (
     <section className="panel history-panel">
@@ -27,8 +38,9 @@ export function HistoryPanel({ history }: HistoryPanelProps) {
                 <strong>{String(item.timestamp || "unknown")}</strong>
                 <p>{String(item.notes || "No notes")}</p>
                 <p>{getImageCount(item)} image attachments</p>
+                <p className="history-classification">{getClassificationLabel(item)}</p>
               </div>
-              <span>{String(item.dependencyScore || 0)}</span>
+              <span className="history-score">{String(item.dependencyScore || 0)}</span>
             </li>
           ))}
         </ul>

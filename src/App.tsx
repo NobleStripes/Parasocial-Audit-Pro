@@ -47,6 +47,11 @@ export default function App() {
           A psychiatry-informed workspace for transcript triage, provider-pluggable analysis, and reproducible
           session capture.
         </p>
+        <div className="hero-meta">
+          <span>{providers.length || 1} provider(s)</span>
+          <span>{thresholdProfiles.length} threshold profile(s)</span>
+          <span>{history.length} saved session(s)</span>
+        </div>
       </header>
 
       <main className="layout">

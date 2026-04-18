@@ -116,6 +116,7 @@ export function IntakePanel({
             event.currentTarget.value = "";
           }}
         />
+        <small className="field-help">Attach context images to enrich scoring and evidence interpretation.</small>
       </label>
 
       <div
@@ -161,6 +162,7 @@ export function IntakePanel({
       <label>
         Analyst Notes
         <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} placeholder="Optional notes" />
+        <small className="field-help">Notes are saved with the session and included in history exports.</small>
       </label>
 
       <label>

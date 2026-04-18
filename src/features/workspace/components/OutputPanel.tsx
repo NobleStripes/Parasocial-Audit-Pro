@@ -52,6 +52,8 @@ function getImageSummary(result: AuditResult) {
 }
 
 export function OutputPanel({ result, griffithsData, heatmapData, comparisonResults }: OutputPanelProps) {
+  const imageSummary = result ? getImageSummary(result) : null;
+
   return (
     <section className="panel output-panel">
       <h2>
@@ -62,11 +64,6 @@ export function OutputPanel({ result, griffithsData, heatmapData, comparisonResu
 
       {result && (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="result-stack">
-          {(() => {
-            const imageSummary = getImageSummary(result);
-
-            return (
-              <>
           <div className="result-header">
             <span className={badgeClass(result.classification)}>{result.classificationLabel || result.classification}</span>
             <span>Confidence {result.confidence}%</span>
@@ -78,18 +75,18 @@ export function OutputPanel({ result, griffithsData, heatmapData, comparisonResu
           <article>
             <h3>Image Context</h3>
             <div className="image-summary-row">
-              <span>{imageSummary.count} uploaded</span>
-              <span>{imageSummary.screenshotCount} screenshots</span>
-              <span>{imageSummary.photoCount} photos</span>
+              <span>{imageSummary?.count || 0} uploaded</span>
+              <span>{imageSummary?.screenshotCount || 0} screenshots</span>
+              <span>{imageSummary?.photoCount || 0} photos</span>
             </div>
             <ul className="image-notes">
-              {imageSummary.notes.map((note) => (
+              {(imageSummary?.notes || []).map((note) => (
                 <li key={note}>{note}</li>
               ))}
             </ul>
-            {imageSummary.items.length > 0 && (
+            {(imageSummary?.items.length || 0) > 0 && (
               <div className="image-summary-row image-summary-items">
-                {imageSummary.items.map((item) => (
+                {(imageSummary?.items || []).map((item) => (
                   <span key={`${item.name}-${item.size}`}>{item.name}</span>
                 ))}
               </div>
@@ -126,9 +123,6 @@ export function OutputPanel({ result, griffithsData, heatmapData, comparisonResu
             <h3>Report</h3>
             <pre>{result.analysisReport}</pre>
           </article>
-              </>
-            );
-          })()}
         </motion.div>
       )}
 
