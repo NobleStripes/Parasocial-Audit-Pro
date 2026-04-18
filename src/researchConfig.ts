@@ -36,6 +36,6 @@ export const IDENTITY_PHRASES = [
 ];
 
 export const MODEL_NAMES = [
-  'grok', 'claude', 'gpt', 'gemini', 'sonnet', 'opus', 'haiku', 'o1', 'o3', 
+  'grok', 'claude', 'gpt', 'sonnet', 'opus', 'haiku', 'o1', 'o3', 
   'flash', 'pro', 'ultra', 'deepseek', 'llama', 'mistral'
 ];

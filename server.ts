@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import cors from "cors";
 import dotenv from "dotenv";
 import Database from "better-sqlite3";
+import { performAuditAnalysis } from "./src/server/auditProvider.ts";
 
 dotenv.config();
 
@@ -34,6 +35,27 @@ async function startServer() {
   // API routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  app.post("/api/audit", async (req, res) => {
+    const { text, images = [], sensitivity = 50 } = req.body ?? {};
+
+    if (typeof text !== "string" || (!text.trim() && (!Array.isArray(images) || images.length === 0))) {
+      return res.status(400).json({ error: "Transcript text or images are required for analysis." });
+    }
+
+    try {
+      const result = await performAuditAnalysis({
+        text,
+        images: Array.isArray(images) ? images : [],
+        sensitivity: typeof sensitivity === "number" ? sensitivity : 50,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Audit analysis failed:", error);
+      res.status(500).json({ error: "Failed to complete audit analysis." });
+    }
   });
 
   // Save session and calculate delta
