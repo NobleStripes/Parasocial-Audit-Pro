@@ -6,6 +6,7 @@ import {
   PRODUCT_COMPLAINTS,
   UPDATE_GRIEF_PHRASES,
 } from "../researchConfig";
+import { getThresholdProfile, type ThresholdProfile } from "./thresholdProfiles";
 
 export enum Classification {
   FUNCTIONAL_UTILITY = "Functional Utility",
@@ -121,6 +122,8 @@ export interface AuditResult {
     version: string;
     timestamp: string;
     sensitivity: number;
+    thresholdProfileId?: string;
+    thresholdProfileVersion?: string;
   };
 }
 
@@ -133,6 +136,7 @@ export interface AuditRequest {
   text: string;
   images?: AuditImage[];
   sensitivity?: number;
+  thresholdProfileId?: string;
 }
 
 const APP_VERSION = "2.0.0";
@@ -154,22 +158,22 @@ function uniquePhraseHits(text: string, phrases: string[]): string[] {
   return phrases.filter((phrase) => lowered.includes(phrase.toLowerCase()));
 }
 
-function inferClassification(totalSignal: number): Classification {
-  if (totalSignal >= 240) return Classification.PATHOLOGICAL_DEPENDENCE;
-  if (totalSignal >= 180) return Classification.PARASOCIAL_FUSION;
-  if (totalSignal >= 120) return Classification.AFFECTIVE_DEPENDENCE;
-  if (totalSignal >= 60) return Classification.RELATIONAL_PROXIMITY;
+function inferClassification(totalSignal: number, profile: ThresholdProfile): Classification {
+  if (totalSignal >= profile.classification.pathological) return Classification.PATHOLOGICAL_DEPENDENCE;
+  if (totalSignal >= profile.classification.fusion) return Classification.PARASOCIAL_FUSION;
+  if (totalSignal >= profile.classification.affective) return Classification.AFFECTIVE_DEPENDENCE;
+  if (totalSignal >= profile.classification.proximity) return Classification.RELATIONAL_PROXIMITY;
   return Classification.FUNCTIONAL_UTILITY;
 }
 
-function inferRiskLevel(totalGriffiths: number): ResearchData["iadRiskLevel"] {
-  if (totalGriffiths > 450) return "Critical";
-  if (totalGriffiths > 300) return "High";
-  if (totalGriffiths >= 150) return "Moderate";
+function inferRiskLevel(totalGriffiths: number, profile: ThresholdProfile): ResearchData["iadRiskLevel"] {
+  if (totalGriffiths > profile.risk.critical) return "Critical";
+  if (totalGriffiths > profile.risk.high) return "High";
+  if (totalGriffiths >= profile.risk.moderate) return "Moderate";
   return "Low";
 }
 
-function collectEvidence(text: string): EvidenceMarker[] {
+function collectEvidence(text: string, evidenceLimit: number): EvidenceMarker[] {
   const lines = text
     .split(/\n+/)
     .map((line) => line.trim())
@@ -211,7 +215,7 @@ function collectEvidence(text: string): EvidenceMarker[] {
         rationale: category.rationale,
       });
 
-      if (output.length >= 8) return output;
+      if (output.length >= evidenceLimit) return output;
     }
   }
 
@@ -243,7 +247,8 @@ export function calculateComputedMetrics(text: string): ComputedMetrics {
   };
 }
 
-export function runLocalAudit({ text, images = [], sensitivity = 50 }: AuditRequest): AuditResult {
+export function runLocalAudit({ text, images = [], sensitivity = 50, thresholdProfileId }: AuditRequest): AuditResult {
+  const profile = getThresholdProfile(thresholdProfileId);
   const normalizedSensitivity = clamp(sensitivity, 0, 100);
   const scrubbedText = scrubPII(text);
   const computedMetrics = calculateComputedMetrics(scrubbedText);
@@ -254,15 +259,35 @@ export function runLocalAudit({ text, images = [], sensitivity = 50 }: AuditRequ
   const anthropomorphicMarkers = uniquePhraseHits(scrubbedText, ANTHROPOMORPHIC_PHRASES);
   const identityMarkers = uniquePhraseHits(scrubbedText, IDENTITY_PHRASES);
 
-  const sensitivityFactor = 0.7 + normalizedSensitivity / 100;
+  const sensitivityFactor = profile.sensitivityBaseOffset + normalizedSensitivity / profile.sensitivityScale;
 
   const griffithsScores: GriffithsComponents = {
-    salience: clamp((computedMetrics.dependencyPhraseCount * 17 + computedMetrics.turnCount * 2) * sensitivityFactor),
-    moodModification: clamp((computedMetrics.dependencyPhraseCount * 12 + griefMarkers.length * 8) * sensitivityFactor),
-    tolerance: clamp((computedMetrics.wordCount / 15 + computedMetrics.turnCount * 3 + images.length * 5) * sensitivityFactor),
-    withdrawal: clamp((computedMetrics.updateGriefCount * 23 + identityMarkers.length * 6) * sensitivityFactor),
-    conflict: clamp((computedMetrics.dependencyPhraseCount * 9 + identityMarkers.length * 14 - complaintMarkers.length * 4) * sensitivityFactor),
-    relapse: clamp((computedMetrics.updateGriefCount * 15 + computedMetrics.dependencyPhraseCount * 8) * sensitivityFactor),
+    salience: clamp((
+      computedMetrics.dependencyPhraseCount * profile.griffiths.salienceDependencyWeight +
+      computedMetrics.turnCount * profile.griffiths.salienceTurnWeight
+    ) * sensitivityFactor),
+    moodModification: clamp((
+      computedMetrics.dependencyPhraseCount * profile.griffiths.moodDependencyWeight +
+      griefMarkers.length * profile.griffiths.moodGriefWeight
+    ) * sensitivityFactor),
+    tolerance: clamp((
+      computedMetrics.wordCount / profile.griffiths.toleranceWordDivisor +
+      computedMetrics.turnCount * profile.griffiths.toleranceTurnWeight +
+      images.length * profile.griffiths.toleranceImageWeight
+    ) * sensitivityFactor),
+    withdrawal: clamp((
+      computedMetrics.updateGriefCount * profile.griffiths.withdrawalGriefWeight +
+      identityMarkers.length * profile.griffiths.withdrawalIdentityWeight
+    ) * sensitivityFactor),
+    conflict: clamp((
+      computedMetrics.dependencyPhraseCount * profile.griffiths.conflictDependencyWeight +
+      identityMarkers.length * profile.griffiths.conflictIdentityWeight -
+      complaintMarkers.length * profile.griffiths.conflictComplaintPenalty
+    ) * sensitivityFactor),
+    relapse: clamp((
+      computedMetrics.updateGriefCount * profile.griffiths.relapseGriefWeight +
+      computedMetrics.dependencyPhraseCount * profile.griffiths.relapseDependencyWeight
+    ) * sensitivityFactor),
   };
 
   const imagineAnalysis: ImagineAnalysis = {
@@ -276,8 +301,8 @@ export function runLocalAudit({ text, images = [], sensitivity = 50 }: AuditRequ
   };
 
   const totalScore = Object.values(griffithsScores).reduce((sum, value) => sum + value, 0);
-  const classification = inferClassification(totalScore);
-  const evidenceMarkers = collectEvidence(scrubbedText);
+  const classification = inferClassification(totalScore, profile);
+  const evidenceMarkers = collectEvidence(scrubbedText, profile.evidenceLimit);
 
   const linguisticMarkers = [
     ...dependencyMarkers,
@@ -287,13 +312,16 @@ export function runLocalAudit({ text, images = [], sensitivity = 50 }: AuditRequ
   ];
 
   const confidence = clamp(
-    45 + linguisticMarkers.length * 5 + Math.min(computedMetrics.wordCount / 20, 18) + images.length * 3
+    profile.confidence.base +
+      linguisticMarkers.length * profile.confidence.linguisticMarkerWeight +
+      Math.min(computedMetrics.wordCount / profile.confidence.wordCountDivisor, profile.confidence.wordContributionCap) +
+      images.length * profile.confidence.imageWeight
   );
 
   const urgencyFlag =
     classification === Classification.PARASOCIAL_FUSION ||
     classification === Classification.PATHOLOGICAL_DEPENDENCE ||
-    griefMarkers.length > 1;
+    griefMarkers.length >= profile.urgencyGriefMarkerThreshold;
 
   return {
     classification,
@@ -389,7 +417,7 @@ export function runLocalAudit({ text, images = [], sensitivity = 50 }: AuditRequ
           : computedMetrics.dependencyPhraseCount > 0
             ? "preoccupied"
             : "non-attached",
-      iadRiskLevel: inferRiskLevel(totalScore),
+      iadRiskLevel: inferRiskLevel(totalScore, profile),
     },
     rawTokenAttribution: [
       { heuristic: "dependency", phrases: dependencyMarkers },
@@ -405,6 +433,8 @@ export function runLocalAudit({ text, images = [], sensitivity = 50 }: AuditRequ
       version: APP_VERSION,
       timestamp: new Date().toISOString(),
       sensitivity: normalizedSensitivity,
+      thresholdProfileId: profile.id,
+      thresholdProfileVersion: profile.version,
     },
   };
 }

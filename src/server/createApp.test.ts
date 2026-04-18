@@ -93,6 +93,19 @@ test("GET /api/providers returns provider list", async () => {
   });
 });
 
+test("GET /api/threshold-profiles returns profile list", async () => {
+  const app = createApp({ sessionRepository: createFakeSessionStore() });
+
+  await withServer(app, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/threshold-profiles`);
+    const payload = (await response.json()) as { profiles: Array<{ id: string }> };
+
+    assert.equal(response.status, 200);
+    assert.ok(payload.profiles.length >= 3);
+    assert.ok(payload.profiles.some((profile) => profile.id === "default-v2"));
+  });
+});
+
 test("POST /api/audit validates missing text", async () => {
   const app = createApp({ sessionRepository: createFakeSessionStore() });
 
@@ -125,6 +138,28 @@ test("POST /api/audit returns audit result", async () => {
     assert.equal(response.status, 200);
     assert.equal(typeof payload.classification, "string");
     assert.equal(typeof payload.confidence, "number");
+  });
+});
+
+test("POST /api/audit/compare returns side-by-side profile comparisons", async () => {
+  const app = createApp({ sessionRepository: createFakeSessionStore() });
+
+  await withServer(app, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/audit/compare`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: "I need you and I miss the old behavior.",
+        profileIds: ["default-v2", "sensitive-v1"],
+      }),
+    });
+
+    const payload = (await response.json()) as { comparisons: Array<{ profileId: string }> };
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.comparisons.length, 2);
+    assert.ok(payload.comparisons.some((row) => row.profileId === "default-v2"));
+    assert.ok(payload.comparisons.some((row) => row.profileId === "sensitive-v1"));
   });
 });
 

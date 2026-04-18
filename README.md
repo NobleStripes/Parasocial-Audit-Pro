@@ -12,6 +12,8 @@ Parasocial Audit v2 is a full rewrite of the original codebase focused on cleane
 - Added provider SDK contract and drop-in extension folder for custom providers.
 - Added API contract tests for health, providers, audit, session persistence, and export endpoints.
 - Split UI into feature-level hook and panel components for maintainability.
+- Added threshold profile system (default, conservative, sensitive) with profile-aware provenance.
+- Added calibration mode for side-by-side scoring across selected profiles.
 
 ## Architecture
 
@@ -32,7 +34,9 @@ Parasocial Audit v2 is a full rewrite of the original codebase focused on cleane
 
 - GET /api/health
 - GET /api/providers
+- GET /api/threshold-profiles
 - POST /api/audit
+- POST /api/audit/compare
 - POST /api/sessions
 - GET /api/sessions/:researcherId
 - GET /api/export/json
@@ -107,6 +111,27 @@ Use .env.example as reference.
 Required:
 - AUDIT_PROVIDER=local | stub
 
+## Threshold Profiles and Calibration
+
+The local engine now supports profile-driven thresholds:
+
+- default-v2: baseline thresholds matching v2 defaults.
+- conservative-v1: higher thresholds to reduce false positives.
+- sensitive-v1: lower thresholds to surface early warning patterns.
+
+Each audit stores profile metadata in result provenance:
+
+- thresholdProfileId
+- thresholdProfileVersion
+
+Calibration mode compares one transcript against multiple profiles and returns:
+
+- profile identity and version
+- classification and risk
+- confidence
+- salience score
+- Griffiths total score
+
 ## Scripts
 
 - npm run dev
@@ -121,6 +146,11 @@ Current tests target domain logic:
 - src/shared/auditCore.test.ts
 - src/server/auditProvider.test.ts
 - src/server/createApp.test.ts
+
+API contract tests now also cover:
+
+- GET /api/threshold-profiles
+- POST /api/audit/compare
 
 Run:
 

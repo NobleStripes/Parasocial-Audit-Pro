@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  compareAuditProfiles,
+  listThresholdProfiles,
   listProviders,
   listSessions,
   performForensicAudit,
   saveSession,
+  type AuditComparisonResult,
   type AuditResult,
 } from "../../../services/auditService";
+import type { ThresholdProfile } from "../../../shared/thresholdProfiles";
 
 const EMPTY_TEXT = `Example:\n[User] I miss how you used to talk to me before the last update.`;
 
@@ -17,12 +21,28 @@ export function useAuditWorkspace() {
   const [result, setResult] = useState<AuditResult | null>(null);
   const [history, setHistory] = useState<Array<Record<string, unknown>>>([]);
   const [providers, setProviders] = useState<string[]>([]);
+  const [thresholdProfiles, setThresholdProfiles] = useState<ThresholdProfile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState("default-v2");
+  const [calibrationProfileIds, setCalibrationProfileIds] = useState<string[]>([]);
+  const [comparisonResults, setComparisonResults] = useState<AuditComparisonResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isComparing, setIsComparing] = useState(false);
 
   useEffect(() => {
     void listProviders().then(setProviders).catch(() => setProviders(["local"]));
+    void listThresholdProfiles()
+      .then((profiles) => {
+        setThresholdProfiles(profiles);
+        if (profiles.length > 0) {
+          setSelectedProfileId(profiles[0].id);
+          setCalibrationProfileIds(profiles.map((profile) => profile.id));
+        }
+      })
+      .catch(() => {
+        setThresholdProfiles([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -57,14 +77,49 @@ export function useAuditWorkspace() {
     setIsRunning(true);
 
     try {
-      const next = await performForensicAudit(transcript, [], sensitivity);
+      const next = await performForensicAudit(transcript, [], sensitivity, selectedProfileId);
       setResult(next);
+      setComparisonResults([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to run audit.");
       setResult(null);
     } finally {
       setIsRunning(false);
     }
+  }
+
+  async function runCalibration() {
+    if (!transcript.trim()) {
+      setError("Transcript is required.");
+      return;
+    }
+
+    if (calibrationProfileIds.length === 0) {
+      setError("Select at least one profile for calibration.");
+      return;
+    }
+
+    setError(null);
+    setIsComparing(true);
+
+    try {
+      const comparisons = await compareAuditProfiles(transcript, calibrationProfileIds, [], sensitivity);
+      setComparisonResults(comparisons);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to run calibration.");
+      setComparisonResults([]);
+    } finally {
+      setIsComparing(false);
+    }
+  }
+
+  function toggleCalibrationProfile(profileId: string) {
+    setCalibrationProfileIds((current) => {
+      if (current.includes(profileId)) {
+        return current.filter((id) => id !== profileId);
+      }
+      return [...current, profileId];
+    });
   }
 
   async function saveCurrentSession() {
@@ -106,12 +161,20 @@ export function useAuditWorkspace() {
     result,
     history,
     providers,
+    thresholdProfiles,
+    selectedProfileId,
+    setSelectedProfileId,
+    calibrationProfileIds,
+    toggleCalibrationProfile,
+    comparisonResults,
     error,
     isRunning,
     isSaving,
+    isComparing,
     griffithsData,
     heatmapData,
     runAudit,
+    runCalibration,
     saveCurrentSession,
   };
 }

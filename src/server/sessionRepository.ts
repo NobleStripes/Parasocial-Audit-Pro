@@ -93,6 +93,8 @@ export class SessionRepository {
         imagineMirroring: imagine.mirroring,
         imagineAffectiveLoop: imagine.affectiveLoop,
         model: payload.provenance?.model,
+        thresholdProfileId: payload.provenance?.thresholdProfileId,
+        thresholdProfileVersion: payload.provenance?.thresholdProfileVersion,
       };
     });
   }

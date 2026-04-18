@@ -16,12 +16,20 @@ export default function App() {
     result,
     history,
     providers,
+    thresholdProfiles,
+    selectedProfileId,
+    setSelectedProfileId,
+    calibrationProfileIds,
+    toggleCalibrationProfile,
+    comparisonResults,
     error,
     isRunning,
     isSaving,
+    isComparing,
     griffithsData,
     heatmapData,
     runAudit,
+    runCalibration,
     saveCurrentSession,
   } = useAuditWorkspace();
 
@@ -47,15 +55,27 @@ export default function App() {
           notes={notes}
           setNotes={setNotes}
           providers={providers}
+          thresholdProfiles={thresholdProfiles}
+          selectedProfileId={selectedProfileId}
+          setSelectedProfileId={setSelectedProfileId}
+          calibrationProfileIds={calibrationProfileIds}
+          toggleCalibrationProfile={toggleCalibrationProfile}
           error={error}
           isRunning={isRunning}
           isSaving={isSaving}
+          isComparing={isComparing}
           hasResult={Boolean(result)}
           onRunAudit={runAudit}
+          onRunCalibration={runCalibration}
           onSaveSession={saveCurrentSession}
         />
 
-        <OutputPanel result={result} griffithsData={griffithsData} heatmapData={heatmapData} />
+        <OutputPanel
+          result={result}
+          griffithsData={griffithsData}
+          heatmapData={heatmapData}
+          comparisonResults={comparisonResults}
+        />
 
         <HistoryPanel history={history} />
       </main>

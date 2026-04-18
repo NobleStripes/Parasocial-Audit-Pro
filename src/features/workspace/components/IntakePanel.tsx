@@ -1,4 +1,5 @@
 import { AlertCircle, FileUp, FlaskConical, Save, Send } from "lucide-react";
+import type { ThresholdProfile } from "../../../shared/thresholdProfiles";
 
 interface IntakePanelProps {
   transcript: string;
@@ -10,11 +11,18 @@ interface IntakePanelProps {
   notes: string;
   setNotes: (value: string) => void;
   providers: string[];
+  thresholdProfiles: ThresholdProfile[];
+  selectedProfileId: string;
+  setSelectedProfileId: (value: string) => void;
+  calibrationProfileIds: string[];
+  toggleCalibrationProfile: (profileId: string) => void;
   error: string | null;
   isRunning: boolean;
   isSaving: boolean;
+  isComparing: boolean;
   hasResult: boolean;
   onRunAudit: () => void;
+  onRunCalibration: () => void;
   onSaveSession: () => void;
 }
 
@@ -28,11 +36,18 @@ export function IntakePanel({
   notes,
   setNotes,
   providers,
+  thresholdProfiles,
+  selectedProfileId,
+  setSelectedProfileId,
+  calibrationProfileIds,
+  toggleCalibrationProfile,
   error,
   isRunning,
   isSaving,
+  isComparing,
   hasResult,
   onRunAudit,
+  onRunCalibration,
   onSaveSession,
 }: IntakePanelProps) {
   return (
@@ -72,9 +87,37 @@ export function IntakePanel({
         <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} placeholder="Optional notes" />
       </label>
 
+      <label>
+        Threshold Profile
+        <select value={selectedProfileId} onChange={(event) => setSelectedProfileId(event.target.value)}>
+          {thresholdProfiles.map((profile) => (
+            <option key={profile.id} value={profile.id}>
+              {profile.name} ({profile.version})
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="calibration-group">
+        <p>Calibration Profiles</p>
+        {thresholdProfiles.map((profile) => (
+          <label key={profile.id} className="calibration-option">
+            <input
+              type="checkbox"
+              checked={calibrationProfileIds.includes(profile.id)}
+              onChange={() => toggleCalibrationProfile(profile.id)}
+            />
+            <span>{profile.name}</span>
+          </label>
+        ))}
+      </div>
+
       <div className="actions">
         <button onClick={onRunAudit} disabled={isRunning} className="btn btn-primary">
           <Send size={16} /> {isRunning ? "Analyzing..." : "Run Audit"}
+        </button>
+        <button onClick={onRunCalibration} disabled={isComparing} className="btn btn-quiet">
+          <Send size={16} /> {isComparing ? "Calibrating..." : "Run Calibration"}
         </button>
         <button onClick={onSaveSession} disabled={!hasResult || isSaving} className="btn btn-quiet">
           <Save size={16} /> {isSaving ? "Saving..." : "Save Session"}

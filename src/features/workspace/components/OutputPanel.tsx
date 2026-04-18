@@ -14,7 +14,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { Classification, type AuditResult } from "../../../services/auditService";
+import { Classification, type AuditComparisonResult, type AuditResult } from "../../../services/auditService";
 
 function badgeClass(classification: Classification) {
   switch (classification) {
@@ -35,9 +35,10 @@ interface OutputPanelProps {
   result: AuditResult | null;
   griffithsData: Array<{ key: string; value: number }>;
   heatmapData: Array<{ category: string; score: number; description: string }>;
+  comparisonResults: AuditComparisonResult[];
 }
 
-export function OutputPanel({ result, griffithsData, heatmapData }: OutputPanelProps) {
+export function OutputPanel({ result, griffithsData, heatmapData, comparisonResults }: OutputPanelProps) {
   return (
     <section className="panel output-panel">
       <h2>
@@ -87,6 +88,36 @@ export function OutputPanel({ result, griffithsData, heatmapData }: OutputPanelP
             <pre>{result.analysisReport}</pre>
           </article>
         </motion.div>
+      )}
+
+      {comparisonResults.length > 0 && (
+        <article>
+          <h3>Calibration Comparison</h3>
+          <table className="comparison-table">
+            <thead>
+              <tr>
+                <th>Profile</th>
+                <th>Classification</th>
+                <th>Risk</th>
+                <th>Confidence</th>
+                <th>Salience</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonResults.map((row) => (
+                <tr key={row.profileId}>
+                  <td>{row.profileName}</td>
+                  <td>{row.classification}</td>
+                  <td>{row.iadRiskLevel}</td>
+                  <td>{row.confidence}</td>
+                  <td>{row.salience}</td>
+                  <td>{row.totalScore}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </article>
       )}
     </section>
   );

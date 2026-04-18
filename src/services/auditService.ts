@@ -1,4 +1,5 @@
 ﻿import type { AuditImage, AuditResult } from "../shared/auditCore";
+import type { ThresholdProfile } from "../shared/thresholdProfiles";
 
 export { Classification } from "../shared/auditCore";
 export type {
@@ -24,6 +25,17 @@ export interface SaveSessionInput {
   notes?: string;
 }
 
+export interface AuditComparisonResult {
+  profileId: string;
+  profileName: string;
+  profileVersion: string;
+  classification: string;
+  confidence: number;
+  iadRiskLevel: string;
+  salience: number;
+  totalScore: number;
+}
+
 async function parseJsonOrThrow(response: Response) {
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
@@ -35,15 +47,32 @@ async function parseJsonOrThrow(response: Response) {
 export async function performForensicAudit(
   text: string,
   images: AuditImage[] = [],
-  sensitivity = 50
+  sensitivity = 50,
+  thresholdProfileId?: string
 ): Promise<AuditResult> {
   const response = await fetch("/api/audit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, images, sensitivity }),
+    body: JSON.stringify({ text, images, sensitivity, thresholdProfileId }),
   });
 
   return parseJsonOrThrow(response) as Promise<AuditResult>;
+}
+
+export async function compareAuditProfiles(
+  text: string,
+  profileIds: string[],
+  images: AuditImage[] = [],
+  sensitivity = 50
+): Promise<AuditComparisonResult[]> {
+  const response = await fetch("/api/audit/compare", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, profileIds, images, sensitivity }),
+  });
+
+  const payload = (await parseJsonOrThrow(response)) as { comparisons: AuditComparisonResult[] };
+  return payload.comparisons;
 }
 
 export async function saveSession(input: SaveSessionInput): Promise<{ id: number; delta: number; message: string }> {
@@ -65,4 +94,10 @@ export async function listProviders(): Promise<string[]> {
   const response = await fetch("/api/providers");
   const payload = (await parseJsonOrThrow(response)) as { providers: string[] };
   return payload.providers;
+}
+
+export async function listThresholdProfiles(): Promise<ThresholdProfile[]> {
+  const response = await fetch("/api/threshold-profiles");
+  const payload = (await parseJsonOrThrow(response)) as { profiles: ThresholdProfile[] };
+  return payload.profiles;
 }
