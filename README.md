@@ -1,6 +1,6 @@
 ﻿# Interaction Pattern Studio
 
-Interaction Pattern Studio is a full rewrite of the original codebase focused on cleaner architecture, provider-pluggable analysis, and a new study workspace UI.
+Interaction Pattern Studio is a psychiatry-informed, research-only workspace for analyzing human-AI interaction transcripts with configurable heuristic models, threshold profiles, and reproducible session capture.
 
 ## Audience Restriction
 

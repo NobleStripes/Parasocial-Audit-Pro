@@ -2,6 +2,7 @@
   "name": "interaction-pattern-studio",
   "private": true,
   "version": "1.0.0-AUDIT",
+  "description": "Psychiatry-informed research workspace for configurable analysis of human-AI interaction patterns.",
   "type": "module",
   "keywords": [
     "psychology-research",
