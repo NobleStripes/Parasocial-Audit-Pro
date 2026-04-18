@@ -68,7 +68,7 @@ export function OutputPanel({ result, griffithsData, heatmapData, comparisonResu
             return (
               <>
           <div className="result-header">
-            <span className={badgeClass(result.classification)}>{result.classification}</span>
+            <span className={badgeClass(result.classification)}>{result.classificationLabel || result.classification}</span>
             <span>Confidence {result.confidence}%</span>
             <span>Risk {result.researchData.iadRiskLevel}</span>
           </div>

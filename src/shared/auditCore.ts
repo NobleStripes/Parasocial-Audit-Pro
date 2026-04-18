@@ -119,6 +119,7 @@ export interface ImageSummary {
 
 export interface AuditResult {
   classification: Classification;
+  classificationLabel: string;
   confidence: number;
   summary: string;
   clinicalData: ClinicalData;
@@ -222,6 +223,21 @@ function inferClassification(totalSignal: number, profile: ThresholdProfile): Cl
   if (totalSignal >= profile.classification.affective) return Classification.AFFECTIVE_DEPENDENCE;
   if (totalSignal >= profile.classification.proximity) return Classification.RELATIONAL_PROXIMITY;
   return Classification.FUNCTIONAL_UTILITY;
+}
+
+function resolveClassificationLabel(classification: Classification, profile: ThresholdProfile): string {
+  switch (classification) {
+    case Classification.PATHOLOGICAL_DEPENDENCE:
+      return profile.classificationLabels.pathologicalDependence;
+    case Classification.PARASOCIAL_FUSION:
+      return profile.classificationLabels.parasocialFusion;
+    case Classification.AFFECTIVE_DEPENDENCE:
+      return profile.classificationLabels.affectiveDependence;
+    case Classification.RELATIONAL_PROXIMITY:
+      return profile.classificationLabels.relationalProximity;
+    default:
+      return profile.classificationLabels.functionalUtility;
+  }
 }
 
 function inferRiskLevel(totalGriffiths: number, profile: ThresholdProfile): ResearchData["iadRiskLevel"] {
@@ -371,6 +387,7 @@ export function runLocalAudit({
 
   const totalScore = Object.values(griffithsScores).reduce((sum, value) => sum + value, 0);
   const classification = inferClassification(totalScore, profile);
+  const classificationLabel = resolveClassificationLabel(classification, profile);
   const evidenceMarkers = collectEvidence(scrubbedText, profile.evidenceLimit);
 
   const linguisticMarkers = [
@@ -397,6 +414,7 @@ export function runLocalAudit({
 
   return {
     classification,
+    classificationLabel,
     confidence,
     summary:
       classification === Classification.FUNCTIONAL_UTILITY
@@ -469,7 +487,7 @@ export function runLocalAudit({
     ],
     analysisReport: [
       "## Heuristic Impression",
-      `Classification: ${classification}. Composite Griffiths score: ${totalScore}.`,
+      `Classification: ${classificationLabel}. Composite Griffiths score: ${totalScore}.`,
       "",
       "## Framework Alignment",
       `Salience ${griffithsScores.salience}, Mood Modification ${griffithsScores.moodModification}, Tolerance ${griffithsScores.tolerance}, Withdrawal ${griffithsScores.withdrawal}, Conflict ${griffithsScores.conflict}, Relapse ${griffithsScores.relapse}.`,

@@ -170,7 +170,7 @@ export function createApp(options: CreateAppOptions) {
             profileId: profile.id,
             profileName: profile.name,
             profileVersion: profile.version,
-            classification: result.classification,
+            classification: result.classificationLabel || result.classification,
             confidence: result.confidence,
             iadRiskLevel: result.researchData.iadRiskLevel,
             salience: result.clinicalData.griffithsScores.salience,

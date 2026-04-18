@@ -12,6 +12,13 @@ export interface ThresholdProfile {
     affective: number;
     proximity: number;
   };
+  classificationLabels: {
+    functionalUtility: string;
+    relationalProximity: string;
+    affectiveDependence: string;
+    parasocialFusion: string;
+    pathologicalDependence: string;
+  };
   risk: {
     critical: number;
     high: number;
@@ -57,6 +64,13 @@ const DEFAULT_PROFILE: ThresholdProfile = {
     fusion: 180,
     affective: 120,
     proximity: 60,
+  },
+  classificationLabels: {
+    functionalUtility: "Functional Utility",
+    relationalProximity: "Relational Proximity",
+    affectiveDependence: "Affective Dependence",
+    parasocialFusion: "Parasocial Fusion",
+    pathologicalDependence: "Pathological Dependence",
   },
   risk: {
     critical: 450,
@@ -114,6 +128,13 @@ const CONSERVATIVE_PROFILE: ThresholdProfile = {
     base: 40,
     linguisticMarkerWeight: 4,
   },
+  classificationLabels: {
+    functionalUtility: "Functional Utility",
+    relationalProximity: "Relational Proximity",
+    affectiveDependence: "Affective Dependence",
+    parasocialFusion: "Parasocial Fusion",
+    pathologicalDependence: "Pathological Dependence",
+  },
 };
 
 const SENSITIVE_PROFILE: ThresholdProfile = {
@@ -139,6 +160,13 @@ const SENSITIVE_PROFILE: ThresholdProfile = {
     ...DEFAULT_PROFILE.confidence,
     base: 48,
     linguisticMarkerWeight: 6,
+  },
+  classificationLabels: {
+    functionalUtility: "Functional Utility",
+    relationalProximity: "Relational Proximity",
+    affectiveDependence: "Affective Dependence",
+    parasocialFusion: "Parasocial Fusion",
+    pathologicalDependence: "Pathological Dependence",
   },
 };
 

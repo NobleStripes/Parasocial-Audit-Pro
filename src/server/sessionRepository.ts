@@ -47,6 +47,7 @@ export class SessionRepository {
       ? input.data
       : {
           classification: (input.data as any)?.classification,
+          classificationLabel: (input.data as any)?.classificationLabel,
           confidence: (input.data as any)?.confidence,
           imageSummary: (input.data as any)?.imageSummary,
           researchData: (input.data as any)?.researchData,
@@ -112,6 +113,7 @@ export class SessionRepository {
         dependencyScore: row.dependencyScore,
         notes: row.notes,
         classification: payload.classification,
+        classificationLabel: payload.classificationLabel,
         confidence: payload.confidence,
         imageCount: payload.imageSummary?.count || 0,
         screenshotCount: payload.imageSummary?.screenshotCount || 0,
