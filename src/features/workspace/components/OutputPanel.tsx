@@ -38,6 +38,19 @@ interface OutputPanelProps {
   comparisonResults: AuditComparisonResult[];
 }
 
+function getImageSummary(result: AuditResult) {
+  return (
+    result.imageSummary ?? {
+      count: 0,
+      screenshotCount: 0,
+      photoCount: 0,
+      totalBytes: 0,
+      items: [],
+      notes: ["No images supplied with this audit."],
+    }
+  );
+}
+
 export function OutputPanel({ result, griffithsData, heatmapData, comparisonResults }: OutputPanelProps) {
   return (
     <section className="panel output-panel">
@@ -49,6 +62,11 @@ export function OutputPanel({ result, griffithsData, heatmapData, comparisonResu
 
       {result && (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="result-stack">
+          {(() => {
+            const imageSummary = getImageSummary(result);
+
+            return (
+              <>
           <div className="result-header">
             <span className={badgeClass(result.classification)}>{result.classification}</span>
             <span>Confidence {result.confidence}%</span>
@@ -60,18 +78,18 @@ export function OutputPanel({ result, griffithsData, heatmapData, comparisonResu
           <article>
             <h3>Image Context</h3>
             <div className="image-summary-row">
-              <span>{result.imageSummary.count} uploaded</span>
-              <span>{result.imageSummary.screenshotCount} screenshots</span>
-              <span>{result.imageSummary.photoCount} photos</span>
+              <span>{imageSummary.count} uploaded</span>
+              <span>{imageSummary.screenshotCount} screenshots</span>
+              <span>{imageSummary.photoCount} photos</span>
             </div>
             <ul className="image-notes">
-              {result.imageSummary.notes.map((note) => (
+              {imageSummary.notes.map((note) => (
                 <li key={note}>{note}</li>
               ))}
             </ul>
-            {result.imageSummary.items.length > 0 && (
+            {imageSummary.items.length > 0 && (
               <div className="image-summary-row image-summary-items">
-                {result.imageSummary.items.map((item) => (
+                {imageSummary.items.map((item) => (
                   <span key={`${item.name}-${item.size}`}>{item.name}</span>
                 ))}
               </div>
@@ -108,6 +126,9 @@ export function OutputPanel({ result, griffithsData, heatmapData, comparisonResu
             <h3>Report</h3>
             <pre>{result.analysisReport}</pre>
           </article>
+              </>
+            );
+          })()}
         </motion.div>
       )}
 
