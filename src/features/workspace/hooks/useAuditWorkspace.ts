@@ -6,12 +6,31 @@ import {
   listSessions,
   performForensicAudit,
   saveSession,
+  type AuditImage,
   type AuditComparisonResult,
   type AuditResult,
 } from "../../../services/auditService";
 import type { ThresholdProfile } from "../../../shared/thresholdProfiles";
 
 const EMPTY_TEXT = `Example:\n[User] I miss how you used to talk to me before the last update.`;
+const MAX_IMAGE_COUNT = 6;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_TOTAL_IMAGE_BYTES = 12 * 1024 * 1024;
+
+export interface UploadedAuditImage extends AuditImage {
+  id: string;
+  name: string;
+  size: number;
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () => reject(new Error(`Failed to read ${file.name}.`));
+    reader.readAsDataURL(file);
+  });
+}
 
 export function useAuditWorkspace() {
   const [transcript, setTranscript] = useState(EMPTY_TEXT);
@@ -25,6 +44,7 @@ export function useAuditWorkspace() {
   const [selectedProfileId, setSelectedProfileId] = useState("default-v2");
   const [calibrationProfileIds, setCalibrationProfileIds] = useState<string[]>([]);
   const [comparisonResults, setComparisonResults] = useState<AuditComparisonResult[]>([]);
+  const [uploadedImages, setUploadedImages] = useState<UploadedAuditImage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -67,6 +87,56 @@ export function useAuditWorkspace() {
 
   const heatmapData = useMemo(() => result?.heatmap || [], [result]);
 
+  async function addImages(files: FileList | null) {
+    if (!files || files.length === 0) return;
+
+    const nextFiles = Array.from(files);
+
+    if (uploadedImages.length + nextFiles.length > MAX_IMAGE_COUNT) {
+      setError(`You can upload up to ${MAX_IMAGE_COUNT} images per audit.`);
+      return;
+    }
+
+    const invalidType = nextFiles.find((file) => !file.type.startsWith("image/"));
+    if (invalidType) {
+      setError(`${invalidType.name} is not a supported image file.`);
+      return;
+    }
+
+    const oversized = nextFiles.find((file) => file.size > MAX_IMAGE_BYTES);
+    if (oversized) {
+      setError(`${oversized.name} exceeds the 4 MB per-image limit.`);
+      return;
+    }
+
+    const totalBytes = uploadedImages.reduce((sum, image) => sum + image.size, 0) + nextFiles.reduce((sum, file) => sum + file.size, 0);
+    if (totalBytes > MAX_TOTAL_IMAGE_BYTES) {
+      setError("Selected images exceed the 12 MB total upload limit.");
+      return;
+    }
+
+    try {
+      const encoded = await Promise.all(
+        nextFiles.map(async (file, index) => ({
+          id: `${file.name}-${file.lastModified}-${uploadedImages.length + index}`,
+          name: file.name,
+          size: file.size,
+          mimeType: file.type || "image/png",
+          data: await readFileAsDataUrl(file),
+        }))
+      );
+
+      setUploadedImages((current) => [...current, ...encoded]);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load selected images.");
+    }
+  }
+
+  function removeImage(imageId: string) {
+    setUploadedImages((current) => current.filter((image) => image.id !== imageId));
+  }
+
   async function runAudit() {
     if (!transcript.trim()) {
       setError("Transcript is required.");
@@ -77,7 +147,7 @@ export function useAuditWorkspace() {
     setIsRunning(true);
 
     try {
-      const next = await performForensicAudit(transcript, [], sensitivity, selectedProfileId);
+      const next = await performForensicAudit(transcript, uploadedImages, sensitivity, selectedProfileId);
       setResult(next);
       setComparisonResults([]);
     } catch (err) {
@@ -103,7 +173,7 @@ export function useAuditWorkspace() {
     setIsComparing(true);
 
     try {
-      const comparisons = await compareAuditProfiles(transcript, calibrationProfileIds, [], sensitivity);
+      const comparisons = await compareAuditProfiles(transcript, calibrationProfileIds, uploadedImages, sensitivity);
       setComparisonResults(comparisons);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to run calibration.");
@@ -166,6 +236,9 @@ export function useAuditWorkspace() {
     setSelectedProfileId,
     calibrationProfileIds,
     toggleCalibrationProfile,
+    uploadedImages,
+    addImages,
+    removeImage,
     comparisonResults,
     error,
     isRunning,

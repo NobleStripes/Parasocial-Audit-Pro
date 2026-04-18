@@ -16,6 +16,9 @@ interface IntakePanelProps {
   setSelectedProfileId: (value: string) => void;
   calibrationProfileIds: string[];
   toggleCalibrationProfile: (profileId: string) => void;
+  uploadedImages: Array<{ id: string; name: string; size: number; data: string }>;
+  onAddImages: (files: FileList | null) => void;
+  onRemoveImage: (imageId: string) => void;
   error: string | null;
   isRunning: boolean;
   isSaving: boolean;
@@ -41,6 +44,9 @@ export function IntakePanel({
   setSelectedProfileId,
   calibrationProfileIds,
   toggleCalibrationProfile,
+  uploadedImages,
+  onAddImages,
+  onRemoveImage,
   error,
   isRunning,
   isSaving,
@@ -81,6 +87,36 @@ export function IntakePanel({
           placeholder="Paste transcript..."
         />
       </label>
+
+      <label>
+        Photos And Screenshots
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(event) => {
+            onAddImages(event.target.files);
+            event.currentTarget.value = "";
+          }}
+        />
+      </label>
+
+      {uploadedImages.length > 0 && (
+        <div className="upload-grid" aria-label="Uploaded screenshots and photos">
+          {uploadedImages.map((image) => (
+            <figure key={image.id} className="upload-card">
+              <img src={image.data} alt={image.name} className="upload-preview" />
+              <figcaption>
+                <strong>{image.name}</strong>
+                <span>{Math.max(1, Math.round(image.size / 1024))} KB</span>
+              </figcaption>
+              <button type="button" className="btn btn-quiet upload-remove" onClick={() => onRemoveImage(image.id)}>
+                Remove
+              </button>
+            </figure>
+          ))}
+        </div>
+      )}
 
       <label>
         Analyst Notes
@@ -129,6 +165,7 @@ export function IntakePanel({
 
       <div className="meta-block">
         <p>Available providers: {providers.join(", ") || "local"}</p>
+        <p>Attached images: {uploadedImages.length}</p>
       </div>
 
       {error && (

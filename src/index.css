@@ -162,6 +162,47 @@ textarea {
   margin: 0;
 }
 
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.upload-card {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.upload-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #ece6da;
+}
+
+.upload-card figcaption {
+  display: grid;
+  gap: 4px;
+  padding: 10px 10px 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.upload-card strong {
+  color: var(--ink);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.upload-remove {
+  margin: 10px;
+}
+
 .error {
   margin-top: 12px;
   border: 1px solid #fecaca;

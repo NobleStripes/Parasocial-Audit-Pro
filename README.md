@@ -13,6 +13,7 @@ It is not authorized for direct consumer mental-health use.
 - Modular backend with app factory, session repository, and provider registry.
 - Pluggable analysis providers (local and stub), selected by AUDIT_PROVIDER.
 - Rebuilt frontend into a three-panel workspace: intake, analysis output, and history.
+- Added photo and screenshot upload support for audit runs and calibration comparisons.
 - Shared domain model and heuristics consolidated in a single core module.
 - Added test coverage for heuristic metrics and core audit output shape.
 - Added provider SDK contract and drop-in extension folder for custom providers.
@@ -112,6 +113,13 @@ From src/server/createApp.ts:
 - POST /api/audit defaults sensitivity to 50 when omitted or non-numeric.
 - POST /api/audit uses images = [] when omitted or invalid.
 - POST /api/sessions requires non-empty researcherId (trimmed). Missing researcherId returns HTTP 400.
+
+### Image Upload Support
+
+- The intake panel supports uploading photos and screenshots alongside transcript text.
+- Supported files use the browser image picker via `accept="image/*"`.
+- Client-side guardrails currently enforce up to 6 images, 4 MB per image, and 12 MB total per audit request.
+- Uploaded images are sent with the existing `POST /api/audit` and `POST /api/audit/compare` request payloads.
 
 ## Environment
 

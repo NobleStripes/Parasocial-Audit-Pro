@@ -21,6 +21,9 @@ export default function App() {
     setSelectedProfileId,
     calibrationProfileIds,
     toggleCalibrationProfile,
+    uploadedImages,
+    addImages,
+    removeImage,
     comparisonResults,
     error,
     isRunning,
@@ -60,6 +63,9 @@ export default function App() {
           setSelectedProfileId={setSelectedProfileId}
           calibrationProfileIds={calibrationProfileIds}
           toggleCalibrationProfile={toggleCalibrationProfile}
+          uploadedImages={uploadedImages}
+          onAddImages={addImages}
+          onRemoveImage={removeImage}
           error={error}
           isRunning={isRunning}
           isSaving={isSaving}
