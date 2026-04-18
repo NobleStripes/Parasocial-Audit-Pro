@@ -225,18 +225,44 @@ function inferClassification(totalSignal: number, profile: ThresholdProfile): Cl
   return Classification.FUNCTIONAL_UTILITY;
 }
 
-function resolveClassificationLabel(classification: Classification, profile: ThresholdProfile): string {
+function resolveClassificationLabel(classification: Classification, profile: ThresholdProfile, totalScore: number): string {
+  const thresholds = profile.classification;
+
+  const between = (value: number, min: number, max: number) => {
+    if (max <= min) return 0;
+    return (value - min) / (max - min);
+  };
+
+  const stage = (ratio: number, labels: [string, string, string]) => {
+    if (ratio < 0.34) return labels[0];
+    if (ratio < 0.67) return labels[1];
+    return labels[2];
+  };
+
   switch (classification) {
     case Classification.PATHOLOGICAL_DEPENDENCE:
-      return profile.classificationLabels.pathologicalDependence;
+      return `${profile.classificationLabels.pathologicalDependence} - ${
+        totalScore >= thresholds.pathological * 1.25 ? "critical dependency signal" : "high dependency signal"
+      }`;
     case Classification.PARASOCIAL_FUSION:
-      return profile.classificationLabels.parasocialFusion;
+      return `${profile.classificationLabels.parasocialFusion} - ${stage(
+        between(totalScore, thresholds.fusion, thresholds.pathological),
+        ["early fusion signal", "elevated fusion signal", "severe fusion signal"]
+      )}`;
     case Classification.AFFECTIVE_DEPENDENCE:
-      return profile.classificationLabels.affectiveDependence;
+      return `${profile.classificationLabels.affectiveDependence} - ${stage(
+        between(totalScore, thresholds.affective, thresholds.fusion),
+        ["early affective signal", "moderate affective signal", "high affective signal"]
+      )}`;
     case Classification.RELATIONAL_PROXIMITY:
-      return profile.classificationLabels.relationalProximity;
+      return `${profile.classificationLabels.relationalProximity} - ${stage(
+        between(totalScore, thresholds.proximity, thresholds.affective),
+        ["early relational signal", "developing relational signal", "strong relational signal"]
+      )}`;
     default:
-      return profile.classificationLabels.functionalUtility;
+      return `${profile.classificationLabels.functionalUtility} - ${
+        totalScore < thresholds.proximity * 0.5 ? "low interaction signal" : "approaching relational threshold"
+      }`;
   }
 }
 
@@ -387,7 +413,7 @@ export function runLocalAudit({
 
   const totalScore = Object.values(griffithsScores).reduce((sum, value) => sum + value, 0);
   const classification = inferClassification(totalScore, profile);
-  const classificationLabel = resolveClassificationLabel(classification, profile);
+  const classificationLabel = resolveClassificationLabel(classification, profile, totalScore);
   const evidenceMarkers = collectEvidence(scrubbedText, profile.evidenceLimit);
 
   const linguisticMarkers = [
