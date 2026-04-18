@@ -5,6 +5,7 @@
  * - single startup path for dev/prod
  */
 import dotenv from "dotenv";
+import { createServer as createHttpServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
@@ -21,11 +22,19 @@ async function startServer() {
   const app = createApp({
     sessionRepository: new SessionRepository(),
   });
+  const httpServer = createHttpServer(app);
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
+        hmr:
+          process.env.DISABLE_HMR === "true"
+            ? false
+            : {
+                server: httpServer,
+                clientPort: PORT,
+              },
       },
       appType: "spa",
     });
@@ -38,7 +47,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Interaction Pattern Studio listening on 0.0.0.0:${PORT}`);
   });
 }
