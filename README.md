@@ -37,6 +37,69 @@ Parasocial Audit v2 is a full rewrite of the original codebase focused on cleane
 - GET /api/sessions/:researcherId
 - GET /api/export/json
 
+## Diagnostic Thresholds (Implementation Reference)
+
+This section documents the exact thresholds currently used by the local heuristic engine in src/shared/auditCore.ts.
+
+### Input Normalization Thresholds
+
+- sensitivity is clamped to [0, 100].
+- sensitivityFactor = 0.7 + (sensitivity / 100), so the effective multiplier range is [0.7, 1.7].
+- Most scored outputs are rounded and clamped to [0, 100].
+
+### Classification Thresholds
+
+Classification is inferred from totalScore = sum(Griffiths six component scores):
+
+- totalScore >= 240: Pathological Dependence
+- totalScore >= 180 and < 240: Parasocial Fusion
+- totalScore >= 120 and < 180: Affective Dependence
+- totalScore >= 60 and < 120: Relational Proximity
+- totalScore < 60: Functional Utility
+
+### IAD Risk Level Thresholds
+
+IAD risk is inferred from totalGriffiths:
+
+- totalGriffiths > 450: Critical
+- totalGriffiths > 300 and <= 450: High
+- totalGriffiths >= 150 and <= 300: Moderate
+- totalGriffiths < 150: Low
+
+### Urgency Flag Thresholds
+
+urgencyFlag is true when any of the following holds:
+
+- classification is Parasocial Fusion
+- classification is Pathological Dependence
+- griefMarkers.length > 1
+
+### Version Mourning Threshold
+
+- versionMourningTriggered is true when griefMarkers.length > 0.
+
+### Confidence Score Thresholds
+
+confidence is computed then clamped to [0, 100]:
+
+- formula: 45 + (linguisticMarkers.length * 5) + min(wordCount / 20, 18) + (images.length * 3)
+- word-count contribution is capped at 18 points
+- baseline confidence before contributions is 45
+
+### Evidence Extraction Thresholds
+
+- Maximum evidence markers returned: 8
+- If no category hit is found, a fallback Transcript Overview marker is emitted
+
+### API Validation Thresholds (Server)
+
+From src/server/createApp.ts:
+
+- POST /api/audit requires non-empty text (trimmed). Empty or missing text returns HTTP 400.
+- POST /api/audit defaults sensitivity to 50 when omitted or non-numeric.
+- POST /api/audit uses images = [] when omitted or invalid.
+- POST /api/sessions requires non-empty researcherId (trimmed). Missing researcherId returns HTTP 400.
+
 ## Environment
 
 Use .env.example as reference.
